@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stroboskopik Zaman & Ters Dönen Tekerlek</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .app-layout {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.25rem;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.65rem;
+            justify-content: center;
+            align-items: center;
+            background: var(--surface-light);
+            padding: 1rem 1.25rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            width: 100%;
+            max-width: 860px;
+        }
+
+        .tab-btn {
+            background: rgba(255,255,255,0.07);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 0.6rem 1.05rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 0.88rem;
+            transition: all 0.2s;
+        }
+        .tab-btn:hover, .tab-btn.active {
+            background: var(--accent-cyan);
+            color: #000;
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .stage-box {
+            width: 100%;
+            max-width: 840px;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.65);
+            background: #060911;
+        }
+
+        canvas {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header class="app-header">
+        <a href="../index.html" class="back-btn">
+            <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"></path></svg>
+            Ana Menü
+        </a>
+        <h1 class="app-title">Stroboskopik Zaman & Ters Dönen Tekerlek</h1>
+        <p class="app-subtitle">Saniyede puluhan kez çakan stroboskop ışığıyla yerçekimine meydan okuyup yukarı akan su damlalarını ve ileri giderken geriye dönen jantları kontrol edin!</p>
+    </header>
+
+    <div class="app-layout">
+        <div class="toolbar">
+            <button class="tab-btn active" data-mode="water">💧 1. Havada Asılı & Yukarı Akan Su Damlaları</button>
+            <button class="tab-btn" data-mode="wheel">🛞 2. Ters Dönen Araba Jantı & Pervane</button>
+            <button class="tab-btn" id="normalLightBtn" style="background:rgba(255,0,123,0.18); border-color:#ff007b; color:#ff85b8;">
+                💡 Normal Sürekli Işığı Aç (Gerçeği Gör!)
+            </button>
+        </div>
+
+        <div class="stage-box">
+            <canvas id="mainCanvas" width="840" height="480"></canvas>
+        </div>
+
+        <div class="toolbar">
+            <span style="font-size:0.88rem; color:var(--text-muted); font-weight:700;">Hızlı Strobe Modları:</span>
+            <button class="tab-btn" data-preset="backward">⬆️ Yerçekimine Ters (Yukarı Akış / Geri Dönüş)</button>
+            <button class="tab-btn active" data-preset="freeze">⏸ Havada Dondur (24.0 Hz Senkron)</button>
+            <button class="tab-btn" data-preset="slowmo">⬇️ Ağır Çekim İleri</button>
+
+            <div style="display:flex; align-items:center; gap:8px; margin-left:auto;">
+                <span style="font-size:0.88rem; color:var(--text-muted); font-weight:600;">Strobe Frekansı: <strong id="hzVal" style="color:var(--accent-cyan);">24.0 Hz</strong></span>
+                <input type="range" id="hzSlider" min="220" max="260" value="240" style="width:140px;">
+            </div>
+        </div>
+
+        <p style="color:var(--text-muted); text-align:center; max-width:760px; font-size:0.95rem; line-height:1.5; margin:0;">
+            <strong>Sırrı Nedir?</strong> Musluktan saniyede tam <strong>24 damla</strong> düşmektedir. Stroboskop ışığı da saniyede 24 kez çaktığında her flaşta bir sonraki damlayı tam bir öncekinin yerinde yakalar! Frekansı <strong>24.5 Hz</strong> yaptığınızda ise damlaları biraz daha yukarıda yakaladığı için suyun musluğa doğru geri çıktığını görürsünüz!
+        </p>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d');
+    const hzSlider = document.getElementById('hzSlider');
+    const hzVal = document.getElementById('hzVal');
+    const normalLightBtn = document.getElementById('normalLightBtn');
+
+    let currentMode = 'water';
+    let normalLight = false;
+    let phase = 0; // Stroboscopic aliased phase
+    let realTime = 0;
+
+    document.querySelectorAll('.tab-btn[data-mode]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tab-btn[data-mode]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentMode = btn.dataset.mode;
+        });
+    });
+
+    document.querySelectorAll('.tab-btn[data-preset]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tab-btn[data-preset]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const p = btn.dataset.preset;
+            if (p === 'freeze') hzSlider.value = 240;
+            else if (p === 'backward') hzSlider.value = 248;
+            else if (p === 'slowmo') hzSlider.value = 232;
+            hzVal.innerText = (parseInt(hzSlider.value) / 10).toFixed(1) + ' Hz';
+        });
+    });
+
+    hzSlider.addEventListener('input', () => {
+        hzVal.innerText = (parseInt(hzSlider.value) / 10).toFixed(1) + ' Hz';
+        document.querySelectorAll('.tab-btn[data-preset]').forEach(b => b.classList.remove('active'));
+    });
+
+    normalLightBtn.addEventListener('click', () => {
+        normalLight = !normalLight;
+        normalLightBtn.classList.toggle('active', normalLight);
+        normalLightBtn.innerText = normalLight
+            ? '⚡ Stroboskopik Flaşı Tekrar Aç'
+            : '💡 Normal Sürekli Işığı Aç (Gerçeği Gör!)';
+    });
+
+    function drawWaterScene() {
+        const W = canvas.width, H = canvas.height;
+        const strobeHz = parseInt(hzSlider.value) / 10; // e.g., 24.0 Hz
+        const dropRate = 24.0;
+
+        // Beat frequency determines apparent motion speed & direction!
+        const beat = (dropRate - strobeHz) * 0.045;
+        phase = (phase + beat + 10) % 1;
+
+        // Subtle strobe background flicker
+        ctx.fillStyle = normalLight ? '#0f172a' : '#060912';
+        ctx.fillRect(0, 0, W, H);
+
+        // Draw 3 Faucet Streams across the lab
+        [200, 420, 640].forEach((fx, sIdx) => {
+            // Metallic Faucet Pipe at top
+            ctx.fillStyle = '#475569';
+            ctx.fillRect(fx - 22, 0, 44, 42);
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillRect(fx - 28, 34, 56, 12);
+
+            if (normalLight) {
+                // Under normal continuous light, fast falling drops blur into a continuous pouring water stream!
+                const streamG = ctx.createLinearGradient(fx - 10, 46, fx + 10, H);
+                streamG.addColorStop(0, 'rgba(56, 189, 248, 0.75)');
+                streamG.addColorStop(1, 'rgba(56, 189, 248, 0.25)');
+                ctx.fillStyle = streamG;
+                ctx.fillRect(fx - 7, 46, 14, H - 46);
+
+                // Rapid motion-blurred streaks
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+                ctx.lineWidth = 3;
+                for (let k = 0; k < 6; k++) {
+                    const yStreak = ((realTime * 900 + k * 85 + sIdx * 30) % (H - 60)) + 50;
+                    ctx.beginPath();
+                    ctx.moveTo(fx, yStreak);
+                    ctx.lineTo(fx, yStreak + 38);
+                    ctx.stroke();
+                }
+            } else {
+                // Stroboscopic freeze / reverse gravity!
+                const numDrops = 9;
+                for (let i = 0; i < numDrops; i++) {
+                    // Normalized fall time t in [0, numDrops]
+                    const t = i + ((phase + sIdx * 0.33) % 1);
+                    // Gravity acceleration y = y0 + c * t^1.35
+                    const y = 55 + Math.pow(t / numDrops, 1.35) * (H - 80);
+                    const wobble = Math.sin(t * 2.2 + phase * Math.PI * 2) * 2.5;
+
+                    // Draw crystal-clear spherical/teardrop water droplet
+                    const rx = 12 + Math.sin(t * 3) * 1.5;
+                    const ry = 13 - Math.sin(t * 3) * 1.5;
+
+                    const dropGrad = ctx.createRadialGradient(fx + wobble - 4, y - 4, 2, fx + wobble, y, 15);
+                    dropGrad.addColorStop(0, '#ffffff');
+                    dropGrad.addColorStop(0.35, '#38bdf8');
+                    dropGrad.addColorStop(1, '#0284c7');
+
+                    ctx.fillStyle = dropGrad;
+                    ctx.beginPath();
+                    ctx.ellipse(fx + wobble, y, rx, ry, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        });
+
+        // Status label on canvas
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+        ctx.fillRect(18, H - 54, 420, 38);
+        ctx.fillStyle = '#00f2ff';
+        ctx.font = '800 14px Inter';
+        const statusMsg = normalLight
+            ? '💡 NORMAL IŞIK: Su saniyede 24 damla hızla aşağı akıyor!'
+            : (strobeHz > 24.05 ? '⬆️ STROBE > 24Hz: Damlalar YUKARI çıkıyor gibi görünür!' :
+               strobeHz < 23.95 ? '⬇️ STROBE < 24Hz: Damlalar ağır çekimde aşağı süzülür!' :
+               '⏸ STROBE = 24.0Hz: Damlalar havada asılı kilitlendi!');
+        ctx.fillText(statusMsg, 30, H - 30);
+    }
+
+    function drawWagonWheelScene() {
+        const W = canvas.width, H = canvas.height;
+        const strobeHz = parseInt(hzSlider.value) / 10;
+        const baseHz = 24.0;
+
+        ctx.fillStyle = '#060912';
+        ctx.fillRect(0, 0, W, H);
+
+        const beat = (baseHz - strobeHz) * 0.035;
+        phase += beat;
+
+        // Left Wheel: Stroboscopic Sampled View | Right Wheel: True Continuous Reference (or Motion Blur)
+        const wheels = [
+            { cx: W * 0.3, cy: H * 0.5, isStrobe: !normalLight, title: normalLight ? 'Normal Işık (Hızlı İleri)' : 'Stroboskopik Kamera Görüntüsü' },
+            { cx: W * 0.72, cy: H * 0.5, isStrobe: false, title: 'Gerçek Dönüş Yönü: ↻ Saat Yönü (İleri)' }
+        ];
+
+        wheels.forEach(w => {
+            const R = 145;
+            const spokes = 8;
+            const rot = w.isStrobe ? phase : realTime * 14;
+
+            ctx.save();
+            ctx.translate(w.cx, w.cy);
+
+            // Outer Tire & Rim
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 22;
+            ctx.beginPath();
+            ctx.arc(0, 0, R, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.strokeStyle = '#00f2ff';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(0, 0, R - 12, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Spokes
+            ctx.rotate(rot);
+            for (let i = 0; i < spokes; i++) {
+                ctx.rotate((Math.PI * 2) / spokes);
+                ctx.strokeStyle = i === 0 ? '#ff007b' : '#e2e8f0';
+                ctx.lineWidth = w.isStrobe ? 10 : 18;
+                ctx.globalAlpha = w.isStrobe ? 1.0 : 0.35;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(R - 14, 0);
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 1.0;
+
+            // Center Hub
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath();
+            ctx.arc(0, 0, 24, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#00f2ff';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.restore();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '800 15px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillText(w.title, w.cx, 38);
+        });
+        ctx.textAlign = 'left';
+    }
+
+    function loop() {
+        realTime += 0.016;
+        if (currentMode === 'water') drawWaterScene();
+        else drawWagonWheelScene();
+        requestAnimationFrame(loop);
+    }
+
+    loop();
+</script>
+</body>
+</html>

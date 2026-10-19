@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sihirli Göz – 3D Stereogram Stüdyosu</title>
+    <meta name="description" content="Emoji, metin ve 3D şekilleri desenlerin içine 3 boyutlu olarak gizleyin.">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .main-layout {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 2rem;
+            align-items: start;
+        }
+        @media (max-width: 1000px) {
+            .main-layout { grid-template-columns: 1fr; }
+        }
+
+        .panel {
+            background: var(--surface-light);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 1.4rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.15rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .field { display: flex; flex-direction: column; gap: 0.45rem; }
+        .label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+        }
+        .val { color: var(--accent-cyan); font-weight: 800; }
+
+        .emoji-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 4px;
+            max-height: 120px;
+            overflow-y: auto;
+            background: rgba(0,0,0,0.25);
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        .emoji-item {
+            font-size: 1.25rem;
+            cursor: pointer;
+            padding: 4px;
+            text-align: center;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+        .emoji-item:hover { background: rgba(255,255,255,0.12); }
+        .emoji-item.selected {
+            background: var(--accent-glow);
+            border: 1px solid var(--accent-cyan);
+        }
+
+        .chip-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .chip {
+            background: rgba(255,255,255,0.07);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .chip:hover, .chip.active {
+            background: rgba(0, 242, 255, 0.18);
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+        }
+
+        .file-input-wrapper {
+            border: 1px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 0.7rem;
+            text-align: center;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: border-color 0.3s;
+        }
+        .file-input-wrapper:hover { border-color: var(--accent-cyan); }
+        input[type="file"] { display: none; }
+
+        .canvas-container {
+            background: #050811;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+
+        .action-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 1rem;
+            justify-content: center;
+        }
+
+        .secondary-btn {
+            background: rgba(255,255,255,0.08);
+            color: white;
+            border: 1px solid var(--border-color);
+            padding: 0.8rem 1.4rem;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .secondary-btn:hover, .secondary-btn.active {
+            border-color: var(--accent-cyan);
+            background: rgba(0, 242, 255, 0.16);
+            color: var(--accent-cyan);
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header class="app-header">
+        <a href="../index.html" class="back-btn">
+            <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"></path></svg>
+            Ana Menü
+        </a>
+        <h1 class="app-title">Şaşı Bak Şaşır (Sihirli Göz)</h1>
+        <p class="app-subtitle">Üstteki iki noktayı ortada 3 nokta olana kadar gözlerinizi dinlendirerek (uzaklara bakar gibi) birleştirin ve 3D şekli keşfedin!</p>
+    </header>
+
+    <div class="main-layout">
+        <div class="panel">
+            <div class="field">
+                <label class="label">1. Gizli 3D Model veya Emoji/Metin Seç</label>
+                <div class="chip-row" id="shapePresets">
+                    <button class="chip active" data-shape="text">✨ Emoji / Metin</button>
+                    <button class="chip" data-shape="shark">🦈 3D Köpekbalığı</button>
+                    <button class="chip" data-shape="saturn">🪐 3D Satürn</button>
+                    <button class="chip" data-shape="ripple">🌊 3D Su Dalgası</button>
+                    <button class="chip" data-shape="torus">🍩 3D Halka</button>
+                </div>
+            </div>
+
+            <div class="field" id="textFieldGroup">
+                <label class="label">Gizlenecek Metin veya Emoji</label>
+                <input type="text" id="textInput" class="form-control" value="🦖" maxlength="10">
+                <div class="emoji-grid" id="emojiPicker"></div>
+            </div>
+
+            <div class="field">
+                <label class="label">2. Doku / Desen Stili</label>
+                <div class="chip-row" id="patternPresets">
+                    <button class="chip active" data-pat="neon">🌈 Siberpunk</button>
+                    <button class="chip" data-pat="forest">🌿 Zümrüt</button>
+                    <button class="chip" data-pat="lava">🔥 Magma</button>
+                    <button class="chip" data-pat="cosmos">🌌 Kozmik</button>
+                    <button class="chip" data-pat="custom">📁 Özel Resim</button>
+                </div>
+                <label class="file-input-wrapper" id="dropArea" style="display:none; margin-top:6px;">
+                    📷 <span id="fileName">Bilgisayardan Desen Fotoğrafı Seç</span>
+                    <input type="file" id="imageInput" accept="image/*">
+                </label>
+            </div>
+
+            <div class="field">
+                <label class="label">Şekil Boyutu <span class="val" id="fontSizeVal">340px</span></label>
+                <input type="range" id="fontSizeSlider" min="120" max="480" value="340">
+            </div>
+
+            <div class="field">
+                <label class="label">3D Derinlik Kabartması <span class="val" id="depthVal">28%</span></label>
+                <input type="range" id="depthSlider" min="8" max="45" value="28">
+            </div>
+
+            <div class="field">
+                <label class="label">Tekrarlama Aralığı (Göz Mesafesi) <span class="val" id="sepVal">130px</span></label>
+                <input type="range" id="sepSlider" min="90" max="200" value="130">
+            </div>
+
+            <button class="primary-btn" id="generateBtn" style="width:100%;">✨ YENİDEN OLUŞTUR</button>
+        </div>
+
+        <div>
+            <div class="canvas-container">
+                <canvas id="mainCanvas" width="960" height="580"></canvas>
+            </div>
+            <div class="action-bar">
+                <button class="secondary-btn" id="peekDepthBtn">👁️ Gizli 3D Derinlik Haritasını Göster (İpucu)</button>
+                <button class="secondary-btn" id="downloadBtn">💾 Resmi PNG İndir</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const emojis = [
+        "🦖", "🦈", "🦋", "❤️", "💎", "🚀", "👽", "💀",
+        "🐉", "🦄", "👑", "🔥", "⚡", "🌙", "⭐", "🍀",
+        "🐬", "🦉", "🦊", "🐙", "🕷️", "🦂", "🐢", "🐍",
+        "🎸", "🎮", "🏆", "⚽", "🎯", "⚓", "🔑", "💡",
+        "😀", "😎", "🤩", "🥳", "🤯", "👻", "🤖", "👾"
+    ];
+
+    const $ = id => document.getElementById(id);
+    const picker = $('emojiPicker');
+    const textInput = $('textInput');
+    const imageInput = $('imageInput');
+    const dropArea = $('dropArea');
+    const fileName = $('fileName');
+    const fontSizeSlider = $('fontSizeSlider');
+    const fontSizeVal = $('fontSizeVal');
+    const depthSlider = $('depthSlider');
+    const depthVal = $('depthVal');
+    const sepSlider = $('sepSlider');
+    const sepVal = $('sepVal');
+    const generateBtn = $('generateBtn');
+    const downloadBtn = $('downloadBtn');
+    const peekDepthBtn = $('peekDepthBtn');
+    const textFieldGroup = $('textFieldGroup');
+    const canvas = $('mainCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let currentShape = 'text';
+    let currentPattern = 'neon';
+    let customPatternImg = null;
+    let showingDepthMap = false;
+    let lastStereogramData = null;
+    let lastDepthPreviewData = null;
+
+    // Populate emojis
+    emojis.forEach(emoji => {
+        const div = document.createElement('div');
+        div.className = 'emoji-item' + (emoji === '🦖' ? ' selected' : '');
+        div.innerText = emoji;
+        div.onclick = () => {
+            textInput.value = emoji;
+            document.querySelectorAll('.emoji-item').forEach(el => el.classList.remove('selected'));
+            div.classList.add('selected');
+            generateStereogram();
+        };
+        picker.appendChild(div);
+    });
+
+    // Shape preset chips
+    document.querySelectorAll('#shapePresets .chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('#shapePresets .chip').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentShape = btn.dataset.shape;
+            textFieldGroup.style.display = currentShape === 'text' ? 'flex' : 'none';
+            generateStereogram();
+        });
+    });
+
+    // Pattern preset chips
+    document.querySelectorAll('#patternPresets .chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('#patternPresets .chip').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentPattern = btn.dataset.pat;
+            dropArea.style.display = currentPattern === 'custom' ? 'block' : 'none';
+            generateStereogram();
+        });
+    });
+
+    fontSizeSlider.oninput = () => { fontSizeVal.innerText = fontSizeSlider.value + 'px'; generateStereogram(); };
+    depthSlider.oninput = () => { depthVal.innerText = depthSlider.value + '%'; generateStereogram(); };
+    sepSlider.oninput = () => { sepVal.innerText = sepSlider.value + 'px'; generateStereogram(); };
+    textInput.oninput = () => generateStereogram();
+    generateBtn.onclick = () => generateStereogram();
+
+    imageInput.onchange = e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        fileName.innerText = file.name;
+        const reader = new FileReader();
+        reader.onload = ev => {
+            const img = new Image();
+            img.onload = () => {
+                customPatternImg = img;
+                generateStereogram();
+            };
+            img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+    };
+
+    peekDepthBtn.onclick = () => {
+        showingDepthMap = !showingDepthMap;
+        peekDepthBtn.classList.toggle('active', showingDepthMap);
+        peekDepthBtn.innerText = showingDepthMap
+            ? '🙈 Stereogram Desenine Geri Dön'
+            : '👁️ Gizli 3D Derinlik Haritasını Göster (İpucu)';
+        drawCurrentView();
+    };
+
+    downloadBtn.onclick = () => {
+        const link = document.createElement('a');
+        link.download = 'sihirligoz-3d.png';
+        link.href = canvas.toDataURL();
+        link.click();
+    };
+
+    // Build smooth 3D Depth Map (Float32Array 0..1)
+    function createDepthMap(W, H) {
+        const dCanvas = document.createElement('canvas');
+        dCanvas.width = W;
+        dCanvas.height = H;
+        const dCtx = dCanvas.getContext('2d');
+        const size = parseInt(fontSizeSlider.value);
+
+        if (currentShape === 'text') {
+            // Draw emoji/text onto an offscreen canvas, then extract alpha + luminance
+            // and apply a soft blur + sharp core for rounded 3D relief!
+            const rawC = document.createElement('canvas');
+            rawC.width = W;
+            rawC.height = H;
+            const rCtx = rawC.getContext('2d');
+            rCtx.font = `900 ${size}px "Segoe UI Emoji", "Apple Color Emoji", Inter, sans-serif`;
+            rCtx.textAlign = 'center';
+            rCtx.textBaseline = 'middle';
+            rCtx.fillStyle = '#ffffff';
+            rCtx.fillText(textInput.value || '❤️', W / 2, H / 2 + 15);
+
+            // Convert any opaque pixel (regardless of emoji RGB color!) into white silhouette
+            const rawImg = rCtx.getImageData(0, 0, W, H);
+            for (let i = 0; i < rawImg.data.length; i += 4) {
+                const a = rawImg.data[i + 3];
+                if (a > 25) {
+                    const lum = 0.299 * rawImg.data[i] + 0.587 * rawImg.data[i + 1] + 0.114 * rawImg.data[i + 2];
+                    const v = Math.min(255, Math.round(170 + (lum / 255) * 85));
+                    rawImg.data[i] = v;
+                    rawImg.data[i + 1] = v;
+                    rawImg.data[i + 2] = v;
+                    rawImg.data[i + 3] = a;
+                } else {
+                    rawImg.data[i + 3] = 0;
+                }
+            }
+            rCtx.putImageData(rawImg, 0, 0);
+
+            dCtx.fillStyle = '#000';
+            dCtx.fillRect(0, 0, W, H);
+            dCtx.filter = 'blur(8px)';
+            dCtx.drawImage(rawC, 0, 0);
+            dCtx.filter = 'none';
+            dCtx.globalAlpha = 0.55;
+            dCtx.drawImage(rawC, 0, 0);
+            dCtx.globalAlpha = 1.0;
+        } else if (currentShape === 'shark') {
+            dCtx.fillStyle = '#000';
+            dCtx.fillRect(0, 0, W, H);
+            dCtx.save();
+            dCtx.translate(W / 2, H / 2 + 10);
+            const s = size / 320;
+            dCtx.scale(s, s);
+            dCtx.filter = 'blur(6px)';
+
+            // Shark body with smooth 3D gradient
+            const bodyGrad = dCtx.createRadialGradient(-20, -10, 10, 0, 0, 220);
+            bodyGrad.addColorStop(0, '#ffffff');
+            bodyGrad.addColorStop(0.7, '#b0b0b0');
+            bodyGrad.addColorStop(1, '#404040');
+            dCtx.fillStyle = bodyGrad;
+
+            // Torpedo body
+            dCtx.beginPath();
+            dCtx.moveTo(-210, 0);
+            dCtx.quadraticCurveTo(-60, -75, 140, -15);
+            dCtx.lineTo(220, -75);
+            dCtx.lineTo(185, 0);
+            dCtx.lineTo(220, 75);
+            dCtx.lineTo(140, 15);
+            dCtx.quadraticCurveTo(-60, 70, -210, 0);
+            dCtx.fill();
+
+            // Dorsal fin
+            dCtx.beginPath();
+            dCtx.moveTo(-40, -48);
+            dCtx.quadraticCurveTo(5, -145, 50, -140);
+            dCtx.quadraticCurveTo(30, -75, 35, -38);
+            dCtx.fill();
+
+            // Pectoral fin (closer to viewer = brighter white)
+            dCtx.fillStyle = '#ffffff';
+            dCtx.beginPath();
+            dCtx.moveTo(-55, 25);
+            dCtx.quadraticCurveTo(-20, 130, 35, 125);
+            dCtx.quadraticCurveTo(10, 55, 5, 25);
+            dCtx.fill();
+            dCtx.restore();
+        } else if (currentShape === 'saturn') {
+            const imgData = dCtx.createImageData(W, H);
+            const cx = W / 2, cy = H / 2 + 10;
+            const R = size * 0.34;
+            for (let y = 0; y < H; y++) {
+                for (let x = 0; x < W; x++) {
+                    const dx = x - cx, dy = y - cy;
+                    // Rotate coordinates for tilted ring
+                    const rx = dx * 0.92 - dy * 0.39;
+                    const ry = dx * 0.39 + dy * 0.92;
+                    let z = 0;
+                    // Sphere depth
+                    const distSq = dx * dx + dy * dy;
+                    if (distSq < R * R) {
+                        z = 0.35 + 0.5 * Math.sqrt(1 - distSq / (R * R));
+                    }
+                    // Tilted ring
+                    const ellDist = Math.sqrt(rx * rx + (ry * 3.2) * (ry * 3.2));
+                    if (ellDist > R * 1.25 && ellDist < R * 2.15) {
+                        const ringZ = 0.55 - (ry / (R * 0.7)) * 0.35;
+                        if (ringZ > z) z = Math.max(0.15, Math.min(1, ringZ));
+                    }
+                    const v = Math.round(z * 255);
+                    const idx = (y * W + x) * 4;
+                    imgData.data[idx] = v;
+                    imgData.data[idx + 1] = v;
+                    imgData.data[idx + 2] = v;
+                    imgData.data[idx + 3] = 255;
+                }
+            }
+            dCtx.putImageData(imgData, 0, 0);
+        } else if (currentShape === 'ripple') {
+            const imgData = dCtx.createImageData(W, H);
+            const cx = W / 2, cy = H / 2 + 10;
+            const maxR = size * 0.78;
+            for (let y = 0; y < H; y++) {
+                for (let x = 0; x < W; x++) {
+                    const r = Math.hypot(x - cx, y - cy);
+                    let z = 0;
+                    if (r < maxR) {
+                        const env = Math.cos((r / maxR) * (Math.PI / 2));
+                        z = (0.5 + 0.5 * Math.cos(r * 0.085)) * env;
+                    }
+                    const v = Math.round(z * 255);
+                    const idx = (y * W + x) * 4;
+                    imgData.data[idx] = v;
+                    imgData.data[idx + 1] = v;
+                    imgData.data[idx + 2] = v;
+                    imgData.data[idx + 3] = 255;
+                }
+            }
+            dCtx.putImageData(imgData, 0, 0);
+        } else if (currentShape === 'torus') {
+            const imgData = dCtx.createImageData(W, H);
+            const cx = W / 2, cy = H / 2 + 10;
+            const majorR = size * 0.42;
+            const tubeR = size * 0.18;
+            for (let y = 0; y < H; y++) {
+                for (let x = 0; x < W; x++) {
+                    const r = Math.hypot(x - cx, y - cy);
+                    const d = Math.abs(r - majorR);
+                    let z = 0;
+                    if (d < tubeR) {
+                        z = 0.25 + 0.75 * Math.sqrt(1 - (d * d) / (tubeR * tubeR));
+                    }
+                    const v = Math.round(z * 255);
+                    const idx = (y * W + x) * 4;
+                    imgData.data[idx] = v;
+                    imgData.data[idx + 1] = v;
+                    imgData.data[idx + 2] = v;
+                    imgData.data[idx + 3] = 255;
+                }
+            }
+            dCtx.putImageData(imgData, 0, 0);
+        }
+
+        return dCtx.getImageData(0, 0, W, H);
+    }
+
+    // Build high-frequency tileable pattern strip of width `sep` and height `H`
+    function createPatternTile(sep, H) {
+        const pCanvas = document.createElement('canvas');
+        pCanvas.width = sep;
+        pCanvas.height = H;
+        const pCtx = pCanvas.getContext('2d');
+
+        if (currentPattern === 'custom' && customPatternImg) {
+            const tileH = Math.max(32, Math.round(sep * (customPatternImg.height / customPatternImg.width)));
+            for (let y = 0; y < H; y += tileH) {
+                pCtx.drawImage(customPatternImg, 0, y, sep, tileH);
+            }
+            return pCtx.getImageData(0, 0, sep, H);
+        }
+
+        const pData = pCtx.createImageData(sep, H);
+        // Seeded pseudo-random + multi-scale dots for crisp stereo locking
+        const palettes = {
+            neon: [[0, 242, 255], [255, 0, 123], [112, 0, 255], [15, 23, 42], [250, 204, 21]],
+            forest: [[16, 185, 129], [5, 150, 105], [6, 78, 59], [163, 230, 53], [20, 40, 30]],
+            lava: [[239, 68, 68], [249, 115, 22], [250, 204, 21], [69, 10, 10], [24, 10, 10]],
+            cosmos: [[56, 189, 248], [168, 85, 247], [236, 72, 153], [15, 23, 42], [255, 255, 255]]
+        };
+        const pal = palettes[currentPattern] || palettes.neon;
+
+        // Fill base fine noise
+        for (let i = 0; i < pData.data.length; i += 4) {
+            const c = pal[Math.floor(Math.random() * pal.length)];
+            const jitter = (Math.random() - 0.5) * 35;
+            pData.data[i] = Math.min(255, Math.max(0, c[0] + jitter));
+            pData.data[i + 1] = Math.min(255, Math.max(0, c[1] + jitter));
+            pData.data[i + 2] = Math.min(255, Math.max(0, c[2] + jitter));
+            pData.data[i + 3] = 255;
+        }
+        pCtx.putImageData(pData, 0, 0);
+
+        // Add medium organic circles (wraps around `sep` horizontally so tile is seamless!)
+        for (let k = 0; k < 420; k++) {
+            const cx = Math.random() * sep;
+            const cy = Math.random() * H;
+            const r = 2 + Math.random() * 6;
+            const c = pal[Math.floor(Math.random() * pal.length)];
+            pCtx.fillStyle = `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+            [-sep, 0, sep].forEach(ox => {
+                pCtx.beginPath();
+                pCtx.arc(cx + ox, cy, r, 0, Math.PI * 2);
+                pCtx.fill();
+            });
+        }
+
+        return pCtx.getImageData(0, 0, sep, H);
+    }
+
+    function generateStereogram() {
+        const W = canvas.width;
+        const H = canvas.height;
+        const separation = parseInt(sepSlider.value);
+        const depthFactor = parseInt(depthSlider.value) / 100;
+
+        const depthImg = createDepthMap(W, H);
+        lastDepthPreviewData = depthImg;
+        const depthData = depthImg.data;
+
+        const patImg = createPatternTile(separation, H);
+        const patternData = patImg.data;
+
+        const outData = ctx.createImageData(W, H);
+        const same = new Int32Array(W);
+
+        for (let y = 0; y < H; y++) {
+            for (let x = 0; x < W; x++) same[x] = x;
+
+            for (let x = 0; x < W; x++) {
+                const z = depthData[(y * W + x) * 4] / 255;
+                const s = Math.round(separation * (1 - 0.55 * z * depthFactor));
+                const left = Math.floor(x - s / 2);
+                const right = left + s;
+
+                if (left >= 0 && right < W) {
+                    let l = same[left];
+                    while (same[l] !== l) l = same[l];
+                    let r = same[right];
+                    while (same[r] !== r) r = same[r];
+
+                    if (l !== r) {
+                        if (l < r) same[r] = l;
+                        else same[l] = r;
+                    }
+                }
+            }
+
+            for (let x = 0; x < W; x++) {
+                let r = x;
+                while (same[r] !== r) r = same[r];
+                same[x] = r;
+            }
+
+            for (let x = 0; x < W; x++) {
+                const root = same[x];
+                const outIdx = (y * W + x) * 4;
+                const px = root % separation;
+                const patIdx = (y * separation + px) * 4;
+
+                outData.data[outIdx] = patternData[patIdx];
+                outData.data[outIdx + 1] = patternData[patIdx + 1];
+                outData.data[outIdx + 2] = patternData[patIdx + 2];
+                outData.data[outIdx + 3] = 255;
+            }
+        }
+
+        lastStereogramData = outData;
+        drawCurrentView();
+    }
+
+    function drawCurrentView() {
+        const W = canvas.width;
+        const separation = parseInt(sepSlider.value);
+
+        if (showingDepthMap && lastDepthPreviewData) {
+            ctx.putImageData(lastDepthPreviewData, 0, 0);
+        } else if (lastStereogramData) {
+            ctx.putImageData(lastStereogramData, 0, 0);
+        }
+
+        // Draw top translucent bar + Fusion Guide Dots separated by exact `separation` pixels!
+        ctx.fillStyle = 'rgba(11, 15, 26, 0.72)';
+        ctx.fillRect(0, 0, W, 42);
+
+        const dotY = 21;
+        const leftDotX = W / 2 - separation / 2;
+        const rightDotX = W / 2 + separation / 2;
+
+        [leftDotX, rightDotX].forEach(dx => {
+            ctx.fillStyle = '#00f2ff';
+            ctx.beginPath();
+            ctx.arc(dx, dotY, 7, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        });
+    }
+
+    // Generate default stereogram immediately on load!
+    generateStereogram();
+</script>
+</body>
+</html>

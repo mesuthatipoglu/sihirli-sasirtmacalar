@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>İmkansız 3D Şekiller (Penrose Stüdyosu)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .studio-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.25rem;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            justify-content: center;
+            align-items: center;
+            background: var(--surface-light);
+            padding: 1rem 1.25rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            width: 100%;
+            max-width: 900px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .toggle-btn {
+            background: rgba(255,255,255,0.08);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 0.55rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        .toggle-btn:hover {
+            border-color: var(--accent-cyan);
+            background: rgba(0, 242, 255, 0.12);
+        }
+        .toggle-btn.active {
+            background: var(--accent-cyan);
+            color: #000;
+            border-color: var(--accent-cyan);
+            font-weight: 800;
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .divider {
+            width: 1px;
+            height: 28px;
+            background: var(--border-color);
+            margin: 0 0.25rem;
+        }
+
+        #canvasContainer {
+            width: 100%;
+            max-width: 900px;
+            height: 560px;
+            background: radial-gradient(circle at center, #182036 0%, #090d16 100%);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            position: relative;
+            cursor: grab;
+            overflow: hidden;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+        }
+        #canvasContainer:active {
+            cursor: grabbing;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .status-badge {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            backdrop-filter: blur(8px);
+            pointer-events: none;
+            transition: all 0.3s;
+        }
+        .status-badge.locked {
+            background: rgba(0, 242, 255, 0.18);
+            border: 1px solid var(--accent-cyan);
+            color: var(--accent-cyan);
+            box-shadow: 0 0 20px rgba(0, 242, 255, 0.25);
+        }
+        .status-badge.unlocked {
+            background: rgba(255, 0, 123, 0.18);
+            border: 1px solid #ff007b;
+            color: #ff6fa9;
+        }
+
+        .hint-overlay {
+            position: absolute;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.65);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header class="app-header">
+        <a href="../index.html" class="back-btn">
+            <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"></path></svg>
+            Ana Menü
+        </a>
+        <h1 class="app-title">İmkansız 3D Şekiller (Penrose)</h1>
+        <p class="app-subtitle">Sadece tek bir "sihirli" izometrik açıdan birleşiyormuş gibi görünen imkansız mimarileri 3 boyutlu inceleyin.</p>
+    </header>
+
+    <div class="studio-container">
+        <div class="toolbar">
+            <div class="btn-group">
+                <button class="toggle-btn active" data-preset="triangle">🔺 Penrose Üçgeni</button>
+                <button class="toggle-btn" data-preset="stairs">🪜 Sonsuz Merdiven</button>
+                <button class="toggle-btn" data-preset="arch">🏛️ Anıt Vadisi Şelalesi</button>
+            </div>
+            <div class="divider"></div>
+            <div class="btn-group">
+                <button class="toggle-btn active" id="btnSnap">✨ Sihirli Açıya Kilitle</button>
+                <button class="toggle-btn" id="btnReveal">🔄 3D Döndür (Hileyi Gör!)</button>
+                <button class="toggle-btn active" id="btnBall">🟣 Akan Enerji Küresi</button>
+            </div>
+        </div>
+
+        <div id="canvasContainer">
+            <div class="status-badge locked" id="statusBadge">
+                <span id="statusDot">●</span>
+                <span id="statusText">İllüzyon Açısı Aktif — Kusursuz İmkansız Bağlantı!</span>
+            </div>
+            <canvas id="view" width="900" height="560"></canvas>
+            <div class="hint-overlay">💡 Fareyle basılı tutup sürükleyerek 3D yapıyı her açıdan inceleyebilirsiniz</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('view');
+    const ctx = canvas.getContext('2d');
+    const statusBadge = document.getElementById('statusBadge');
+    const statusText = document.getElementById('statusText');
+    const btnSnap = document.getElementById('btnSnap');
+    const btnReveal = document.getElementById('btnReveal');
+    const btnBall = document.getElementById('btnBall');
+
+    // Exact Isometric Magic Angles where (x+k, y+k, z+k) projects to the EXACT same 2D point!
+    const MAGIC_YAW = Math.PI / 4; // 45 deg
+    const MAGIC_PITCH = Math.asin(1 / Math.sqrt(3)); // ~35.2643897 deg
+
+    let yaw = MAGIC_YAW;
+    let pitch = MAGIC_PITCH;
+    let targetYaw = MAGIC_YAW;
+    let targetPitch = MAGIC_PITCH;
+    let autoRotate = false;
+    let showBall = true;
+    let ballT = 0; // 0..1 continuous parameter around the loop
+    let currentPreset = 'triangle';
+
+    // Blocks & Continuous Ball Track
+    let blocks = [];
+    let overlapRedrawBlocks = [];
+    let trackSegments = []; // Array of { ax, ay, az, bx, by, bz, len, bounce }
+    let totalTrackLength = 1;
+    let gapEndpoints = null;
+
+    function buildPreset(name) {
+        currentPreset = name;
+        blocks = [];
+        overlapRedrawBlocks = [];
+        trackSegments = [];
+        gapEndpoints = null;
+
+        if (name === 'triangle') {
+            // N = 5 side length Penrose Triangle
+            // Arm 1: (0,0,0) -> (5,0,0) along +X
+            // Arm 2: (5,0,0) -> (5,5,0) along +Y
+            // Arm 3: (5,5,0) -> (5,5,4) along +Z (since (5,5,5) projects to (0,0,0)!)
+            const N = 5;
+            const cx = 2.5, cy = 2.5, cz = 2.0;
+
+            const raw = [];
+            // Arm 1
+            for (let x = 0; x <= N; x++) {
+                raw.push({
+                    x: x - cx, y: 0 - cy, z: 0 - cz,
+                    hidePosX: x < N,      // Hide internal +X seam between Arm 1 blocks
+                    hidePosY: x === N,    // At corner (5,0,0), hide +Y seam into Arm 2
+                    hidePosZ: false
+                });
+            }
+            // Arm 2
+            for (let y = 1; y <= N; y++) {
+                raw.push({
+                    x: N - cx, y: y - cy, z: 0 - cz,
+                    hidePosX: false,
+                    hidePosY: y < N,      // Hide internal +Y seam between Arm 2 blocks
+                    hidePosZ: y === N     // At corner (5,5,0), hide +Z seam into Arm 3
+                });
+            }
+            // Arm 3
+            for (let z = 1; z < N; z++) {
+                raw.push({
+                    x: N - cx, y: N - cy, z: z - cz,
+                    hidePosX: false,
+                    hidePosY: false,
+                    hidePosZ: true        // Hide internal +Z seam (and at z=4, hide seam into (0,0,0)!)
+                });
+            }
+
+            blocks = raw;
+            // To close the impossible cycle seamlessly without any internal face bleeding:
+            // After drawing all blocks in natural back-to-front order, re-draw (0,0,0) and (1,0,0)
+            // with their internal +X face culled so they tuck over (5,5,4) and under (2,0,0)!
+            overlapRedrawBlocks = [raw[0], raw[1]];
+
+            // Continuous Surface Track for the Energy Orb:
+            // Note that (5, 5.58, 5) - (0, 0.58, 0) = (5, 5, 5), which projects to (0, 0) at MAGIC_ANGLE!
+            // So the end of Segment 3 and start of Segment 1 are at the EXACT SAME PIXEL!
+            const segs = [
+                // Segment 1: glides along Top (+Y) surface of Arm 1 from (0, 0.58, 0) to (5.58, 0.58, 0)
+                { ax: 0 - cx, ay: 0.58 - cy, az: 0 - cz, bx: N + 0.58 - cx, by: 0.58 - cy, bz: 0 - cz, len: 5 },
+                // Segment 2: glides up Right (+X) surface of Arm 2 from (5.58, 0.58, 0) to (5.58, 5.58, 0)
+                { ax: N + 0.58 - cx, ay: 0.58 - cy, az: 0 - cz, bx: N + 0.58 - cx, by: N + 0.58 - cy, bz: 0 - cz, len: 5 },
+                // Segment 3: glides along Top (+Y) surface of Arm 3 from (5.58, 5.58, 0) to (5.0, 5.58, 5.0)
+                { ax: N + 0.58 - cx, ay: N + 0.58 - cy, az: 0 - cz, bx: N - cx, by: N + 0.58 - cy, bz: N - cz, len: 5 }
+            ];
+            trackSegments = segs;
+            totalTrackLength = 15;
+            gapEndpoints = {
+                a: { x: 0 - cx, y: 0 - cy, z: 0 - cz },
+                b: { x: N - cx, y: N - cy, z: (N - 1) - cz }
+            };
+        } else if (name === 'stairs') {
+            // Exact 16-Step Grid-Aligned Penrose Staircase!
+            // Starts at (0,0,0) and ends at (4,4,4) == (0,0,0) + (4,4,4)!
+            // Flight 1: 6 steps along +X: (0,0)..(6,0)
+            // Flight 2: 6 steps along +Z: (6,0)..(6,6)
+            // Flight 3: 2 steps along -X: (6,6)..(4,6)
+            // Flight 4: 2 steps along -Z: (4,6)..(4,4)
+            const stepCoords = [];
+            for (let i = 0; i < 6; i++) stepCoords.push({ x: i, z: 0 });
+            for (let i = 0; i < 6; i++) stepCoords.push({ x: 6, z: i });
+            for (let i = 0; i < 2; i++) stepCoords.push({ x: 6 - i, z: 6 });
+            for (let i = 0; i < 2; i++) stepCoords.push({ x: 4, z: 6 - i });
+            // Add final virtual point (4, 4) at i = 16 for ball track closure
+            stepCoords.push({ x: 4, z: 4 });
+
+            const cx = 3.0, cy = 2.0, cz = 3.0;
+            const dy = 4.0 / 16.0; // +0.25 per step -> after 16 steps, y climbs +4.0!
+
+            for (let i = 0; i < 16; i++) {
+                const s = stepCoords[i];
+                const topY = i * dy;
+                // Top step block + 2 foundation blocks below it so it forms a solid architectural column
+                for (let d = 2; d >= 0; d--) {
+                    const b = {
+                        x: s.x - cx,
+                        y: topY - d - cy,
+                        z: s.z - cz,
+                        isPillar: d > 0,
+                        hidePosY: d > 0, // Lower pillar blocks hide their top face
+                        stepIdx: i
+                    };
+                    blocks.push(b);
+                    if (i <= 1) overlapRedrawBlocks.push(b);
+                }
+
+                // Ball bounces smoothly from step i to step i+1
+                const nextS = stepCoords[i + 1];
+                const nextY = (i + 1) * dy;
+                trackSegments.push({
+                    ax: s.x - cx, ay: topY + 0.62 - cy, az: s.z - cz,
+                    bx: nextS.x - cx, by: nextY + 0.62 - cy, bz: nextS.z - cz,
+                    len: 1,
+                    bounce: true
+                });
+            }
+            totalTrackLength = 16;
+            gapEndpoints = {
+                a: { x: 0 - cx, y: 0 - cy, z: 0 - cz },
+                b: { x: 4 - cx, y: 3.75 - cy, z: 5 - cz }
+            };
+        } else if (name === 'arch') {
+            // Monument Valley Impossible Waterfall / Aqueduct
+            // Channel flows along +Z from (0,4,0) to (0,4,5), then along -X from (0,4,5) to (-5,4,5)?
+            // Let's use the exact (+5, +5, +5) equivalence:
+            // Lower pool at (0,0,0), aqueduct channel goes:
+            // 1. Along +X from (0,0,0) to (5,0,0)
+            // 2. Pillar climbs +Y from (5,0,0) to (5,5,0)
+            // 3. Top aqueduct goes along +Z from (5,5,0) to (5,5,4)
+            // And from (5,5,4), a glowing waterfall pours straight down into (0,0,0) (since (5,5,5) == (0,0,0))!
+            const N = 5;
+            const cx = 2.5, cy = 2.5, cz = 2.0;
+            for (let x = 0; x <= N; x++) {
+                blocks.push({ x: x - cx, y: -cy, z: -cz, hidePosX: x < N, hidePosY: x === N });
+            }
+            for (let y = 1; y <= N; y++) {
+                blocks.push({ x: N - cx, y: y - cy, z: -cz, isPillar: y < N, hidePosY: y < N, hidePosZ: y === N });
+            }
+            for (let z = 1; z <= N; z++) {
+                blocks.push({ x: N - cx, y: N - cy, z: z - cz, hidePosZ: z < N });
+            }
+            overlapRedrawBlocks = [blocks[0], blocks[1]];
+
+            trackSegments = [
+                { ax: 0 - cx, ay: 0.6 - cy, az: 0 - cz, bx: N - cx, by: 0.6 - cy, bz: 0 - cz, len: 5 },
+                { ax: N - cx, ay: 0.6 - cy, az: 0 - cz, bx: N - cx, by: N + 0.6 - cy, bz: 0 - cz, len: 5 },
+                { ax: N - cx, ay: N + 0.6 - cy, az: 0 - cz, bx: N - cx, by: N + 0.6 - cy, bz: N - cz, len: 5 }
+            ];
+            totalTrackLength = 15;
+            gapEndpoints = {
+                a: { x: 0 - cx, y: -cy, z: -cz },
+                b: { x: N - cx, y: N - cy, z: N - cz }
+            };
+        }
+    }
+
+    function project(x, y, z, scale) {
+        const cosY = Math.cos(yaw), sinY = Math.sin(yaw);
+        const x1 = x * cosY - z * sinY;
+        const z1 = x * sinY + z * cosY;
+
+        const cosP = Math.cos(pitch), sinP = Math.sin(pitch);
+        const y2 = y * cosP - z1 * sinP;
+        const z2 = y * sinP + z1 * cosP;
+
+        return {
+            x: canvas.width / 2 + x1 * scale,
+            y: canvas.height / 2 - y2 * scale,
+            depth: z2
+        };
+    }
+
+    function isNearMagicAngle() {
+        const dy = Math.abs(Math.atan2(Math.sin(yaw - MAGIC_YAW), Math.cos(yaw - MAGIC_YAW)));
+        const dp = Math.abs(pitch - MAGIC_PITCH);
+        return dy < 0.045 && dp < 0.045;
+    }
+
+    function drawCube(b, scale, magicLocked) {
+        const bx = b.x, by = b.y, bz = b.z;
+        const h = 0.5;
+        const verts = [
+            project(bx - h, by - h, bz - h, scale), // 0
+            project(bx + h, by - h, bz - h, scale), // 1
+            project(bx + h, by + h, bz - h, scale), // 2
+            project(bx - h, by + h, bz - h, scale), // 3
+            project(bx - h, by - h, bz + h, scale), // 4
+            project(bx + h, by - h, bz + h, scale), // 5
+            project(bx + h, by + h, bz + h, scale), // 6
+            project(bx - h, by + h, bz + h, scale)  // 7
+        ];
+
+        const allFaces = [
+            { id: 'posY', idx: [3, 2, 6, 7], color: b.isPillar ? '#334155' : '#00f2ff', skip: magicLocked && b.hidePosY },
+            { id: 'negY', idx: [0, 1, 5, 4], color: '#0f172a', skip: false },
+            { id: 'posZ', idx: [7, 6, 5, 4], color: b.isPillar ? '#1e293b' : '#6366f1', skip: magicLocked && b.hidePosZ },
+            { id: 'negZ', idx: [2, 3, 0, 1], color: '#1e1b4b', skip: false },
+            { id: 'posX', idx: [6, 2, 1, 5], color: b.isPillar ? '#0f172a' : '#a855f7', skip: magicLocked && b.hidePosX },
+            { id: 'negX', idx: [3, 7, 4, 0], color: '#312e81', skip: false }
+        ];
+
+        allFaces.forEach(f => {
+            f.depth = (verts[f.idx[0]].depth + verts[f.idx[1]].depth + verts[f.idx[2]].depth + verts[f.idx[3]].depth) / 4;
+        });
+        allFaces.sort((a, b) => a.depth - b.depth);
+
+        // Draw front-facing faces (top 3 in depth) unless culled as an internal seam
+        allFaces.slice(3).forEach(f => {
+            if (f.skip) return;
+            ctx.fillStyle = f.color;
+            ctx.beginPath();
+            ctx.moveTo(verts[f.idx[0]].x, verts[f.idx[0]].y);
+            ctx.lineTo(verts[f.idx[1]].x, verts[f.idx[1]].y);
+            ctx.lineTo(verts[f.idx[2]].x, verts[f.idx[2]].y);
+            ctx.lineTo(verts[f.idx[3]].x, verts[f.idx[3]].y);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(11, 15, 26, 0.45)';
+            ctx.lineWidth = 1.15;
+            ctx.stroke();
+        });
+    }
+
+    function renderLoop() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Subtle background grid
+        ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+        ctx.lineWidth = 1;
+        for (let x = 0; x < canvas.width; x += 40) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+        }
+        for (let y = 0; y < canvas.height; y += 40) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+        }
+
+        if (autoRotate) {
+            targetYaw += 0.011;
+            targetPitch = MAGIC_PITCH + Math.sin(targetYaw * 1.4) * 0.24;
+        }
+
+        yaw += (targetYaw - yaw) * 0.14;
+        pitch += (targetPitch - pitch) * 0.14;
+
+        const magicLocked = isNearMagicAngle();
+        if (magicLocked) {
+            statusBadge.className = 'status-badge locked';
+            statusText.innerText = 'İllüzyon Açısı Aktif — Kusursuz İmkansız Bağlantı!';
+            btnSnap.classList.add('active');
+        } else {
+            statusBadge.className = 'status-badge unlocked';
+            statusText.innerText = 'Gerçek 3D Açı — Kopukluk ve Derinlik Farkı Görünüyor!';
+            btnSnap.classList.remove('active');
+        }
+
+        const scale = 42;
+
+        // 1. Sort all blocks in true 3D Painter's order (back to front)
+        const sorted = blocks.map(b => ({
+            b,
+            depth: project(b.x, b.y, b.z, scale).depth
+        })).sort((a, b) => a.depth - b.depth);
+
+        sorted.forEach(item => {
+            drawCube(item.b, scale, magicLocked);
+        });
+
+        // 2. When at the magic angle, re-draw the cap blocks in their natural order with internal seams culled!
+        if (magicLocked && overlapRedrawBlocks.length > 0) {
+            overlapRedrawBlocks.forEach(b => {
+                drawCube(b, scale, true);
+            });
+        }
+
+        // 3. When NOT at the magic angle, show the 3D gap line between the disconnected ends!
+        if (!magicLocked && gapEndpoints) {
+            const p1 = project(gapEndpoints.a.x, gapEndpoints.a.y, gapEndpoints.a.z, scale);
+            const p2 = project(gapEndpoints.b.x, gapEndpoints.b.y, gapEndpoints.b.z, scale);
+            ctx.save();
+            ctx.setLineDash([7, 6]);
+            ctx.strokeStyle = '#ff007b';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // 4. Draw continuous smooth rolling/bouncing energy orb along the surface track!
+        if (showBall && trackSegments.length > 0) {
+            ballT = (ballT + 0.0028) % 1;
+            let dist = ballT * totalTrackLength;
+            let seg = trackSegments[0];
+            for (let i = 0; i < trackSegments.length; i++) {
+                if (dist <= trackSegments[i].len || i === trackSegments.length - 1) {
+                    seg = trackSegments[i];
+                    break;
+                }
+                dist -= trackSegments[i].len;
+            }
+            const frac = Math.max(0, Math.min(1, dist / seg.len));
+            const bounceOffset = seg.bounce ? Math.sin(frac * Math.PI) * 0.38 : 0;
+
+            const bx = seg.ax + (seg.bx - seg.ax) * frac;
+            const by = seg.ay + (seg.by - seg.ay) * frac + bounceOffset;
+            const bz = seg.az + (seg.bz - seg.az) * frac;
+
+            const bp = project(bx, by, bz, scale);
+
+            // Soft shadow under ball
+            const sp = project(bx, by - bounceOffset - 0.08, bz, scale);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+            ctx.beginPath();
+            ctx.ellipse(sp.x, sp.y, 8, 4, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Glowing Orb
+            const grad = ctx.createRadialGradient(bp.x - 3, bp.y - 3, 2, bp.x, bp.y, 15);
+            grad.addColorStop(0, '#ffffff');
+            grad.addColorStop(0.45, '#ff007b');
+            grad.addColorStop(1, 'rgba(255, 0, 123, 0)');
+
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(bp.x, bp.y, 15, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(bp.x, bp.y, 5.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        requestAnimationFrame(renderLoop);
+    }
+
+    document.querySelectorAll('[data-preset]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('[data-preset]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            buildPreset(btn.dataset.preset);
+            autoRotate = false;
+            btnReveal.classList.remove('active');
+            targetYaw = MAGIC_YAW;
+            targetPitch = MAGIC_PITCH;
+        });
+    });
+
+    btnSnap.addEventListener('click', () => {
+        autoRotate = false;
+        btnReveal.classList.remove('active');
+        yaw = Math.atan2(Math.sin(yaw), Math.cos(yaw));
+        targetYaw = MAGIC_YAW;
+        targetPitch = MAGIC_PITCH;
+    });
+
+    btnReveal.addEventListener('click', () => {
+        autoRotate = !autoRotate;
+        btnReveal.classList.toggle('active', autoRotate);
+        if (autoRotate && isNearMagicAngle()) {
+            targetYaw += 0.45;
+        }
+    });
+
+    btnBall.addEventListener('click', () => {
+        showBall = !showBall;
+        btnBall.classList.toggle('active', showBall);
+    });
+
+    let dragging = false;
+    let lastX = 0, lastY = 0;
+
+    canvas.addEventListener('mousedown', e => {
+        dragging = true;
+        autoRotate = false;
+        btnReveal.classList.remove('active');
+        lastX = e.clientX;
+        lastY = e.clientY;
+    });
+
+    window.addEventListener('mousemove', e => {
+        if (!dragging) return;
+        const dx = e.clientX - lastX;
+        const dy = e.clientY - lastY;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        targetYaw += dx * 0.008;
+        targetPitch = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, targetPitch + dy * 0.008));
+    });
+
+    window.addEventListener('mouseup', () => { dragging = false; });
+
+    canvas.addEventListener('touchstart', e => {
+        dragging = true;
+        autoRotate = false;
+        btnReveal.classList.remove('active');
+        lastX = e.touches[0].clientX;
+        lastY = e.touches[0].clientY;
+    }, {passive: true});
+
+    window.addEventListener('touchmove', e => {
+        if (!dragging) return;
+        const dx = e.touches[0].clientX - lastX;
+        const dy = e.touches[0].clientY - lastY;
+        lastX = e.touches[0].clientX;
+        lastY = e.touches[0].clientY;
+        targetYaw += dx * 0.008;
+        targetPitch = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, targetPitch + dy * 0.008));
+    }, {passive: true});
+
+    window.addEventListener('touchend', () => { dragging = false; });
+
+    buildPreset('triangle');
+    renderLoop();
+</script>
+</body>
+</html>

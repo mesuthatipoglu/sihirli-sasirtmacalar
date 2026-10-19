@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hayalet Renkler – Negatif Artık Görüntü</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .app-layout {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.25rem;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.65rem;
+            justify-content: center;
+            align-items: center;
+            background: var(--surface-light);
+            padding: 1rem 1.25rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            width: 100%;
+            max-width: 840px;
+        }
+
+        .scene-btn {
+            background: rgba(255,255,255,0.07);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 0.55rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 0.88rem;
+            transition: all 0.2s;
+        }
+        .scene-btn:hover, .scene-btn.active {
+            background: var(--accent-cyan);
+            color: #000;
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .stage-box {
+            position: relative;
+            width: 100%;
+            max-width: 760px;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.65);
+            background: #111;
+        }
+
+        canvas {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .status-pill {
+            position: absolute;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(11, 15, 26, 0.88);
+            border: 1px solid var(--accent-cyan);
+            color: var(--text-main);
+            padding: 8px 20px;
+            border-radius: 30px;
+            font-weight: 800;
+            font-size: 0.92rem;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        .upload-label {
+            background: rgba(255,255,255,0.08);
+            border: 1px dashed var(--border-color);
+            padding: 0.55rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.88rem;
+            font-weight: 700;
+        }
+        .upload-label:hover { border-color: var(--accent-cyan); }
+        .upload-label input { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header class="app-header">
+        <a href="../index.html" class="back-btn">
+            <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"></path></svg>
+            Ana Menü
+        </a>
+        <h1 class="app-title">Hayalet Renkler (İspanyol Kalesi İllüzyonu)</h1>
+        <p class="app-subtitle">15 saniye boyunca ters renkli görüntüdeki noktaya odaklanın. Görüntü %100 Siyah-Beyaz olduğunda beyniniz onu canlı renklerle boyayacak!</p>
+    </header>
+
+    <div class="app-layout">
+        <div class="toolbar">
+            <button class="scene-btn active" data-scene="castle">🏰 İspanyol Kalesi & Manzara</button>
+            <button class="scene-btn" data-scene="rose">🌹 Kırmızı Gül & Yapraklar</button>
+            <button class="scene-btn" data-scene="flag">🇹🇷 Ay Yıldız Artık Görüntü</button>
+            <label class="upload-label">
+                📁 Fotoğraf Yükle
+                <input type="file" id="photoInput" accept="image/*">
+            </label>
+        </div>
+
+        <div class="stage-box">
+            <div class="status-pill" id="statusPill">🎯 Ortadaki noktaya göz kırpmadan bakın: 15s</div>
+            <canvas id="mainCanvas" width="760" height="480"></canvas>
+        </div>
+
+        <div class="toolbar" style="justify-content:center; gap:1rem;">
+            <button class="primary-btn" id="startBtn" style="padding:0.75rem 1.8rem;">⏱️ 15 SANİYELİK YÜKLEMEYİ BAŞLAT</button>
+            <button class="scene-btn" id="toggleGrayBtn">🔄 Manuel Geçiş: Ters Renk &harr; Siyah-Beyaz</button>
+            <button class="scene-btn" id="peekTrueBtn">🎨 Orijinal Renkleri Gör</button>
+        </div>
+
+        <p style="color:var(--text-muted); text-align:center; max-width:720px; font-size:0.95rem; line-height:1.5; margin:0;">
+            <strong>Önemli:</strong> Sayaç sıfırlanıp siyah-beyaz resim geldiğinde <strong>gözünüzü ortadaki noktadan ayırmayın!</strong> Siyah-beyaz resmi rengarenk göreceksiniz. Gözünüzü başka yere kaydırdığınız anda renklerin uçup gittiğini fark edeceksiniz!
+        </p>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d');
+    const statusPill = document.getElementById('statusPill');
+    const startBtn = document.getElementById('startBtn');
+    const toggleGrayBtn = document.getElementById('toggleGrayBtn');
+    const peekTrueBtn = document.getElementById('peekTrueBtn');
+    const photoInput = document.getElementById('photoInput');
+
+    let currentScene = 'castle';
+    let viewState = 'negative'; // 'negative', 'grayscale', 'truecolor'
+    let countdown = 15;
+    let timer = null;
+
+    let trueColorData = null;
+    let negativeData = null;
+    let grayscaleData = null;
+
+    function buildScenesFromCanvas(srcCanvas) {
+        const W = canvas.width, H = canvas.height;
+        const sCtx = srcCanvas.getContext('2d');
+        const raw = sCtx.getImageData(0, 0, W, H);
+        trueColorData = sCtx.createImageData(W, H);
+        negativeData = sCtx.createImageData(W, H);
+        grayscaleData = sCtx.createImageData(W, H);
+
+        for (let i = 0; i < raw.data.length; i += 4) {
+            const r = raw.data[i], g = raw.data[i + 1], b = raw.data[i + 2];
+            trueColorData.data[i] = r;
+            trueColorData.data[i + 1] = g;
+            trueColorData.data[i + 2] = b;
+            trueColorData.data[i + 3] = 255;
+
+            // Pure grayscale luminance
+            const lum = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+            grayscaleData.data[i] = lum;
+            grayscaleData.data[i + 1] = lum;
+            grayscaleData.data[i + 2] = lum;
+            grayscaleData.data[i + 3] = 255;
+
+            // Chromatic Complementary Adaptation Map (boosted opponent color, flattened luminance)
+            const cr = r - lum;
+            const cg = g - lum;
+            const cb = b - lum;
+            negativeData.data[i] = Math.min(255, Math.max(0, Math.round(145 - cr * 1.45)));
+            negativeData.data[i + 1] = Math.min(255, Math.max(0, Math.round(145 - cg * 1.45)));
+            negativeData.data[i + 2] = Math.min(255, Math.max(0, Math.round(145 - cb * 1.45)));
+            negativeData.data[i + 3] = 255;
+        }
+    }
+
+    function generatePresetScene(name) {
+        const W = canvas.width, H = canvas.height;
+        const c = document.createElement('canvas');
+        c.width = W; c.height = H;
+        const cx = c.getContext('2d');
+
+        if (name === 'castle') {
+            // Vivid Blue Sky
+            const sky = cx.createLinearGradient(0, 0, 0, H * 0.65);
+            sky.addColorStop(0, '#0284c7');
+            sky.addColorStop(1, '#38bdf8');
+            cx.fillStyle = sky;
+            cx.fillRect(0, 0, W, H);
+
+            // Warm Golden Sun
+            cx.fillStyle = '#facc15';
+            cx.beginPath();
+            cx.arc(W - 150, 110, 55, 0, Math.PI * 2);
+            cx.fill();
+
+            // Purple/Magenta Distant Mountains
+            cx.fillStyle = '#9333ea';
+            cx.beginPath();
+            cx.moveTo(0, 320);
+            cx.lineTo(180, 170);
+            cx.lineTo(360, 290);
+            cx.lineTo(560, 150);
+            cx.lineTo(W, 280);
+            cx.lineTo(W, H);
+            cx.lineTo(0, H);
+            cx.fill();
+
+            // Lush Green Hills
+            cx.fillStyle = '#16a34a';
+            cx.beginPath();
+            cx.moveTo(0, 340);
+            cx.quadraticCurveTo(W * 0.5, 260, W, 350);
+            cx.lineTo(W, H);
+            cx.lineTo(0, H);
+            cx.fill();
+
+            // Spanish Terracotta Red/Orange Castle in Center
+            cx.fillStyle = '#ea580c';
+            cx.fillRect(W / 2 - 120, 180, 240, 160);
+            cx.strokeStyle = '#1e293b';
+            cx.lineWidth = 3;
+            cx.strokeRect(W / 2 - 120, 180, 240, 160);
+
+            // Castle Towers
+            [-130, 0, 95].forEach((tx, idx) => {
+                const tw = idx === 1 ? 65 : 50;
+                const th = idx === 1 ? 210 : 185;
+                cx.fillStyle = '#dc2626';
+                cx.fillRect(W / 2 + tx - tw / 2, 340 - th, tw, th);
+                cx.strokeRect(W / 2 + tx - tw / 2, 340 - th, tw, th);
+
+                // Roofs
+                cx.fillStyle = '#facc15';
+                cx.beginPath();
+                cx.moveTo(W / 2 + tx - tw / 2 - 8, 340 - th);
+                cx.lineTo(W / 2 + tx, 340 - th - 55);
+                cx.lineTo(W / 2 + tx + tw / 2 + 8, 340 - th);
+                cx.closePath();
+                cx.fill();
+                cx.stroke();
+            });
+        } else if (name === 'rose') {
+            // Vivid Emerald Green Leaf Background
+            cx.fillStyle = '#15803d';
+            cx.fillRect(0, 0, W, H);
+
+            // Leaf shapes
+            cx.fillStyle = '#22c55e';
+            cx.strokeStyle = '#052e16';
+            cx.lineWidth = 3;
+            for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
+                cx.save();
+                cx.translate(W / 2, H / 2);
+                cx.rotate(a);
+                cx.beginPath();
+                cx.ellipse(145, 0, 85, 42, 0, 0, Math.PI * 2);
+                cx.fill();
+                cx.stroke();
+                cx.restore();
+            }
+
+            // Concentric Ruby Red Rose Petals
+            for (let r = 135; r > 15; r -= 22) {
+                cx.fillStyle = r % 44 === 0 ? '#e11d48' : '#be123c';
+                for (let p = 0; p < 7; p++) {
+                    const ang = (p / 7) * Math.PI * 2 + r * 0.03;
+                    cx.beginPath();
+                    cx.arc(W / 2 + Math.cos(ang) * (r * 0.45), H / 2 + Math.sin(ang) * (r * 0.45), r * 0.58, 0, Math.PI * 2);
+                    cx.fill();
+                    cx.stroke();
+                }
+            }
+        } else if (name === 'flag') {
+            // Vivid Red Turkish Flag Target (Adaptation will be Cyan & Black!)
+            cx.fillStyle = '#e11d48';
+            cx.fillRect(0, 0, W, H);
+
+            // Outer White Crescent
+            cx.fillStyle = '#ffffff';
+            cx.beginPath();
+            cx.arc(W / 2 - 55, H / 2, 115, 0, Math.PI * 2);
+            cx.fill();
+
+            // Inner Red Cutout
+            cx.fillStyle = '#e11d48';
+            cx.beginPath();
+            cx.arc(W / 2 - 26, H / 2, 92, 0, Math.PI * 2);
+            cx.fill();
+
+            // 5-Pointed White Star
+            cx.fillStyle = '#ffffff';
+            cx.save();
+            cx.translate(W / 2 + 105, H / 2);
+            cx.rotate(-Math.PI / 10);
+            cx.beginPath();
+            for (let i = 0; i < 10; i++) {
+                const rad = i % 2 === 0 ? 52 : 20;
+                const a = (i * Math.PI) / 5;
+                if (i === 0) cx.moveTo(Math.cos(a) * rad, Math.sin(a) * rad);
+                else cx.lineTo(Math.cos(a) * rad, Math.sin(a) * rad);
+            }
+            cx.closePath();
+            cx.fill();
+            cx.restore();
+        }
+
+        buildScenesFromCanvas(c);
+        renderCurrentState();
+    }
+
+    function renderCurrentState() {
+        const W = canvas.width, H = canvas.height;
+        if (viewState === 'negative' && negativeData) {
+            ctx.putImageData(negativeData, 0, 0);
+        } else if (viewState === 'grayscale' && grayscaleData) {
+            ctx.putImageData(grayscaleData, 0, 0);
+        } else if (trueColorData) {
+            ctx.putImageData(trueColorData, 0, 0);
+        }
+
+        // Draw center fixation cross/dot (essential to keep gaze locked in place!)
+        const cx = W / 2, cy = H / 2;
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+    }
+
+    function startCountdown() {
+        clearInterval(timer);
+        viewState = 'negative';
+        countdown = 15;
+        statusPill.innerText = `🎯 Ortadaki noktaya göz kırpmadan bakın: ${countdown}s`;
+        statusPill.style.borderColor = 'var(--accent-cyan)';
+        renderCurrentState();
+
+        timer = setInterval(() => {
+            countdown--;
+            if (countdown > 0) {
+                statusPill.innerText = `🎯 Gözünüzü noktadan ayırmayın: ${countdown}s`;
+            } else {
+                clearInterval(timer);
+                viewState = 'grayscale';
+                statusPill.innerText = '🤯 ŞİMDİ RESİM %100 SİYAH-BEYAZ! Ama renkli görüyorsunuz değil mi?';
+                statusPill.style.borderColor = '#ff007b';
+                renderCurrentState();
+            }
+        }, 1000);
+    }
+
+    document.querySelectorAll('.scene-btn[data-scene]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.scene-btn[data-scene]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentScene = btn.dataset.scene;
+            generatePresetScene(currentScene);
+            startCountdown();
+        });
+    });
+
+    startBtn.addEventListener('click', startCountdown);
+
+    toggleGrayBtn.addEventListener('click', () => {
+        clearInterval(timer);
+        viewState = viewState === 'negative' ? 'grayscale' : 'negative';
+        statusPill.innerText = viewState === 'grayscale'
+            ? '⚪ SİYAH-BEYAZ MOD (%0 Renk Doygunluğu)'
+            : '🌈 TERS RENKLİ ADAPTASYON MODU';
+        renderCurrentState();
+    });
+
+    peekTrueBtn.addEventListener('click', () => {
+        clearInterval(timer);
+        viewState = 'truecolor';
+        statusPill.innerText = '🎨 GERÇEK RENKLİ REFERANS GÖRÜNTÜSÜ';
+        renderCurrentState();
+    });
+
+    photoInput.addEventListener('change', e => {
+        if (!e.target.files[0]) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+            const img = new Image();
+            img.onload = () => {
+                const c = document.createElement('canvas');
+                c.width = canvas.width;
+                c.height = canvas.height;
+                const cx = c.getContext('2d');
+                const scale = Math.max(c.width / img.width, c.height / img.height);
+                const ix = (c.width - img.width * scale) / 2;
+                const iy = (c.height - img.height * scale) / 2;
+                cx.drawImage(img, ix, iy, img.width * scale, img.height * scale);
+                buildScenesFromCanvas(c);
+                startCountdown();
+            };
+            img.src = ev.target.result;
+        };
+        reader.readAsDataURL(e.target.files[0]);
+    });
+
+    generatePresetScene('castle');
+    startCountdown();
+</script>
+</body>
+</html>

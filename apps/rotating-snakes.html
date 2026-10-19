@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fırıldak Yılanlar – Çevresel Hareket İllüzyonu</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .app-layout {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.25rem;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            justify-content: center;
+            align-items: center;
+            background: var(--surface-light);
+            padding: 1rem 1.25rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            width: 100%;
+            max-width: 880px;
+        }
+
+        .ctrl-btn {
+            background: rgba(255,255,255,0.07);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 0.6rem 1.1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 0.88rem;
+            transition: all 0.2s;
+        }
+        .ctrl-btn:hover, .ctrl-btn.active {
+            background: var(--accent-cyan);
+            color: #000;
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .canvas-box {
+            width: 100%;
+            max-width: 880px;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.65);
+            background: #111;
+        }
+
+        canvas {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header class="app-header">
+        <a href="../index.html" class="back-btn">
+            <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"></path></svg>
+            Ana Menü
+        </a>
+        <h1 class="app-title">Fırıldak Yılanlar (Kitaoka Hareket İllüzyonu)</h1>
+        <p class="app-subtitle">Bu sayfada hiçbir animasyon yoktur — görüntü %100 sabittir! Gözlerinizi çarkların arasında gezdirdiğinizde çarklar kendi kendine dönecektir.</p>
+    </header>
+
+    <div class="app-layout">
+        <div class="toolbar">
+            <button class="ctrl-btn active" data-pal="classic">🐍 Klasik Sarı-Mavi (En Güçlü)</button>
+            <button class="ctrl-btn" data-pal="cyber">🔮 Neon Pembe-Camgöbeği</button>
+            <button class="ctrl-btn" data-pal="gray">⚫ Saf Gri Tonlamalı</button>
+            <button class="ctrl-btn" id="invertDirBtn">🔄 Dönüş Yönlerini Ters Çevir</button>
+            <button class="ctrl-btn" id="killIllusionBtn" style="background:rgba(255,0,123,0.18); border-color:#ff007b; color:#ff85b8;">
+                🛑 İllüzyonu Kapat (Simetrik Kontrast Kanıtı)
+            </button>
+        </div>
+
+        <div class="canvas-box">
+            <canvas id="mainCanvas" width="880" height="540"></canvas>
+        </div>
+
+        <p style="color:var(--text-muted); text-align:center; max-width:760px; font-size:0.95rem; line-height:1.5; margin:0;">
+            <strong>Neden Döner?</strong> Her halka <em>Siyah &rarr; Koyu Mavi &rarr; Beyaz &rarr; Parlak Sarı</em> sırasıyla dizilmiştir. Gözünüzü gezdirdiğinizde yüksek kontrastlı kenarlar beyninize düşük kontrastlı kenarlardan milisaniyelerce daha hızlı ulaşır ve hareket dedektörlerinizi kandırır! Tek bir noktaya sabit bakarsanız dönüş anında durur.
+        </p>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d');
+    const invertDirBtn = document.getElementById('invertDirBtn');
+    const killIllusionBtn = document.getElementById('killIllusionBtn');
+
+    let currentPal = 'classic';
+    let dirSign = 1;
+    let disableIllusion = false;
+
+    const palettes = {
+        // Order: [Black, DarkLuminance, White, HighLuminance]
+        classic: ['#000000', '#1d4ed8', '#ffffff', '#eab308'],
+        cyber:   ['#000000', '#7e22ce', '#ffffff', '#00f2ff'],
+        gray:    ['#000000', '#52525b', '#ffffff', '#d4d4d8']
+    };
+
+    document.querySelectorAll('.ctrl-btn[data-pal]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.ctrl-btn[data-pal]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentPal = btn.dataset.pal;
+            renderStaticIllusion();
+        });
+    });
+
+    invertDirBtn.addEventListener('click', () => {
+        dirSign *= -1;
+        invertDirBtn.classList.toggle('active', dirSign === -1);
+        renderStaticIllusion();
+    });
+
+    killIllusionBtn.addEventListener('click', () => {
+        disableIllusion = !disableIllusion;
+        killIllusionBtn.classList.toggle('active', disableIllusion);
+        killIllusionBtn.innerText = disableIllusion
+            ? '✨ Asimetrik Kontrastı Aç (Çarkları Döndür!)'
+            : '🛑 İllüzyonu Kapat (Simetrik Kontrast Kanıtı)';
+        renderStaticIllusion();
+    });
+
+    function drawSnakeWheel(cx, cy, maxR, wheelDir) {
+        const pal = palettes[currentPal];
+        const rings = 7;
+        const segments = 24; // 24 * 4 = 96 sub-wedges per ring
+
+        for (let rIdx = 0; rIdx < rings; rIdx++) {
+            const rOuter = maxR * Math.pow(0.78, rIdx);
+            const rInner = maxR * Math.pow(0.78, rIdx + 1);
+            const subWedges = segments * 4;
+            const dAng = (Math.PI * 2) / subWedges;
+            const rotOffset = (rIdx % 2) * (dAng * 2);
+
+            for (let i = 0; i < subWedges; i++) {
+                const a0 = i * dAng + rotOffset;
+                const a1 = (i + 1) * dAng + rotOffset;
+
+                let stepIdx = i % 4;
+                if (wheelDir < 0) stepIdx = (4 - stepIdx) % 4;
+
+                if (disableIllusion) {
+                    // Symmetric luminance removes directional drift completely!
+                    ctx.fillStyle = (i % 2 === 0) ? pal[0] : pal[2];
+                } else {
+                    ctx.fillStyle = pal[stepIdx];
+                }
+
+                ctx.beginPath();
+                ctx.arc(cx, cy, rOuter, a0, a1 + 0.004);
+                ctx.arc(cx, cy, rInner, a1 + 0.004, a0, true);
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+
+        // Small center dot
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    function renderStaticIllusion() {
+        const W = canvas.width, H = canvas.height;
+        ctx.fillStyle = '#808080';
+        ctx.fillRect(0, 0, W, H);
+
+        // Arrange interlocking wheels across canvas in alternating spin directions
+        const wheels = [
+            { x: 165, y: 150, r: 138, dir: 1 },
+            { x: 440, y: 150, r: 138, dir: -1 },
+            { x: 715, y: 150, r: 138, dir: 1 },
+            { x: 165, y: 395, r: 138, dir: -1 },
+            { x: 440, y: 395, r: 138, dir: 1 },
+            { x: 715, y: 395, r: 138, dir: -1 },
+            { x: 302, y: 272, r: 96,  dir: -1 },
+            { x: 578, y: 272, r: 96,  dir: 1 }
+        ];
+
+        wheels.forEach(w => {
+            drawSnakeWheel(w.x, w.y, w.r, w.dir * dirSign);
+        });
+    }
+
+    renderStaticIllusion();
+</script>
+</body>
+</html>

@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geometrik Bükülme & Boyut Yanılsamaları</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .app-layout {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.25rem;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.65rem;
+            justify-content: center;
+            align-items: center;
+            background: var(--surface-light);
+            padding: 1rem 1.25rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            width: 100%;
+            max-width: 860px;
+        }
+
+        .tab-btn {
+            background: rgba(255,255,255,0.07);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 0.6rem 1.1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        .tab-btn:hover, .tab-btn.active {
+            background: var(--accent-cyan);
+            color: #000;
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .canvas-box {
+            width: 100%;
+            max-width: 820px;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.65);
+            background: #111;
+        }
+
+        canvas {
+            width: 100%;
+            height: auto;
+            display: block;
+            cursor: crosshair;
+        }
+
+        .score-banner {
+            background: rgba(0, 242, 255, 0.12);
+            border: 1px solid var(--accent-cyan);
+            color: var(--accent-cyan);
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            font-weight: 800;
+            font-size: 1rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header class="app-header">
+        <a href="../index.html" class="back-btn">
+            <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"></path></svg>
+            Ana Menü
+        </a>
+        <h1 class="app-title">Geometrik Bükülme & Boyut Stüdyosu</h1>
+        <p class="app-subtitle">Cetvelle çizilmiş dümdüz çizgilerin nasıl eğrildiğini, tam dairelerin nasıl spirale dönüştüğünü ve boyut algınızın nasıl şaştığını test edin!</p>
+    </header>
+
+    <div class="app-layout">
+        <div class="toolbar">
+            <button class="tab-btn active" data-tab="cafewall">🧱 1. Kafe Duvarı (Eğrilen Çizgiler)</button>
+            <button class="tab-btn" data-tab="fraser">🌀 2. Sahte Spiral (Aslında Tam Daire!)</button>
+            <button class="tab-btn" data-tab="ebbinghaus">🎯 3. Göz Kararı Boyut Oyunu (Ebbinghaus)</button>
+        </div>
+
+        <div class="canvas-box">
+            <canvas id="mainCanvas" width="820" height="460"></canvas>
+        </div>
+
+        <!-- Cafe Wall Controls -->
+        <div class="toolbar" id="cafeControls">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:0.88rem; color:var(--text-muted); font-weight:600;">Tuğla Kaydırma:</span>
+                <input type="range" id="offsetSlider" min="0" max="100" value="50" style="width:130px;">
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:0.88rem; color:var(--text-muted); font-weight:600;">Harç Parlaklığı:</span>
+                <input type="range" id="mortarSlider" min="0" max="255" value="128" style="width:130px;">
+            </div>
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:700;">
+                <input type="checkbox" id="cafeRuler" style="width:18px; height:18px;">
+                📏 Kırmızı Cetvel Çizgilerini Göster
+            </label>
+        </div>
+
+        <!-- Fraser Controls -->
+        <div class="toolbar" id="fraserControls" style="display:none;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:700;">
+                <input type="checkbox" id="fraserProof" style="width:18px; height:18px;">
+                ⭕ Tüm Daire Kılavuzlarını Göster (Hiçbiri Spiral Değil!)
+            </label>
+            <span style="font-size:0.88rem; color:var(--text-muted);">💡 Farenizi şeklin üzerinde gezdirerek halkaları tek tek takip edin!</span>
+        </div>
+
+        <!-- Ebbinghaus Mini-Game Controls -->
+        <div class="toolbar" id="ebbinghausControls" style="display:none; flex-direction:column; gap:0.85rem;">
+            <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:1.25rem; width:100%;">
+                <span style="font-weight:700;">Sağdaki Turuncu Dairenin Boyutunu Eşitleyin:</span>
+                <input type="range" id="guessSlider" min="20" max="85" value="35" style="width:220px;">
+                <button class="primary-btn" id="checkScoreBtn" style="padding:0.6rem 1.4rem;">🔍 ÖLÇ VE PUANLA!</button>
+                <button class="tab-btn" id="newRoundBtn">🎲 Yeni Hedef</button>
+            </div>
+            <div class="score-banner" id="scoreBanner">
+                Soldaki ve sağdaki turuncu daireler eşit göründüğünde "Ölç ve Puanla" butonuna basın!
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d');
+    const offsetSlider = document.getElementById('offsetSlider');
+    const mortarSlider = document.getElementById('mortarSlider');
+    const cafeRuler = document.getElementById('cafeRuler');
+    const fraserProof = document.getElementById('fraserProof');
+    const guessSlider = document.getElementById('guessSlider');
+    const checkScoreBtn = document.getElementById('checkScoreBtn');
+    const newRoundBtn = document.getElementById('newRoundBtn');
+    const scoreBanner = document.getElementById('scoreBanner');
+
+    let currentTab = 'cafewall';
+    let hoverRadius = -1;
+    let trueTargetRadius = 48;
+    let revealedEbbinghaus = false;
+
+    document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tab-btn[data-tab]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentTab = btn.dataset.tab;
+            document.getElementById('cafeControls').style.display = currentTab === 'cafewall' ? 'flex' : 'none';
+            document.getElementById('fraserControls').style.display = currentTab === 'fraser' ? 'flex' : 'none';
+            document.getElementById('ebbinghausControls').style.display = currentTab === 'ebbinghaus' ? 'flex' : 'none';
+            render();
+        });
+    });
+
+    [offsetSlider, mortarSlider, cafeRuler, fraserProof].forEach(el => {
+        el.addEventListener('input', render);
+        el.addEventListener('change', render);
+    });
+
+    guessSlider.addEventListener('input', () => {
+        revealedEbbinghaus = false;
+        render();
+    });
+
+    checkScoreBtn.addEventListener('click', () => {
+        revealedEbbinghaus = true;
+        const userR = parseInt(guessSlider.value);
+        const diff = userR - trueTargetRadius;
+        const pctError = Math.abs((diff / trueTargetRadius) * 100).toFixed(1);
+        const accuracy = Math.max(0, 100 - parseFloat(pctError) * 1.5).toFixed(0);
+        scoreBanner.innerHTML = `🎯 Gerçek Boyut: <strong>${trueTargetRadius}px</strong> | Sizin Seçiminiz: <strong>${userR}px</strong> | Yanılma: <strong>%${pctError}</strong> &mdash; Algı Puanınız: <strong>${accuracy}/100</strong>`;
+        render();
+    });
+
+    newRoundBtn.addEventListener('click', () => {
+        trueTargetRadius = Math.floor(36 + Math.random() * 28);
+        guessSlider.value = Math.floor(24 + Math.random() * 50);
+        revealedEbbinghaus = false;
+        scoreBanner.innerText = 'Yeni hedef hazır! Sağdaki turuncu daireyi soldakiyle eşitleyin.';
+        render();
+    });
+
+    canvas.addEventListener('mousemove', e => {
+        if (currentTab !== 'fraser') return;
+        const rect = canvas.getBoundingClientRect();
+        const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+        const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+        hoverRadius = Math.hypot(mx - canvas.width / 2, my - canvas.height / 2);
+        render();
+    });
+
+    function drawCafeWall() {
+        const W = canvas.width, H = canvas.height;
+        const rowH = 46;
+        const tileW = 56;
+        const mortar = parseInt(mortarSlider.value);
+        const shiftFactor = parseInt(offsetSlider.value) / 100;
+
+        ctx.fillStyle = `rgb(${mortar}, ${mortar}, ${mortar})`;
+        ctx.fillRect(0, 0, W, H);
+
+        const rows = Math.ceil(H / rowH);
+        for (let r = 0; r < rows; r++) {
+            // Zigzag phase per row
+            const dir = r % 2 === 0 ? (r % 4 === 0 ? 0 : 1) : 0.5;
+            const rowShift = dir * tileW * shiftFactor;
+
+            for (let c = -2; c < Math.ceil(W / tileW) + 2; c++) {
+                ctx.fillStyle = c % 2 === 0 ? '#05070c' : '#ffffff';
+                ctx.fillRect(c * tileW + rowShift, r * rowH + 1.5, tileW, rowH - 3);
+            }
+        }
+
+        if (cafeRuler.checked) {
+            ctx.strokeStyle = '#ff0055';
+            ctx.lineWidth = 3;
+            for (let r = 1; r < rows; r++) {
+                ctx.beginPath();
+                ctx.moveTo(0, r * rowH);
+                ctx.lineTo(W, r * rowH);
+                ctx.stroke();
+            }
+        }
+    }
+
+    function drawFraserSpiral() {
+        const W = canvas.width, H = canvas.height;
+        const cx = W / 2, cy = H / 2;
+
+        // Subtle radial Pinna-Brelstaff background
+        ctx.fillStyle = '#64748b';
+        ctx.fillRect(0, 0, W, H);
+
+        const rings = [32, 58, 86, 116, 148, 182, 218];
+
+        rings.forEach((r, rIdx) => {
+            const numSegs = 28 + rIdx * 6;
+            const dAng = (Math.PI * 2) / numSegs;
+
+            for (let i = 0; i < numSegs; i++) {
+                const a = i * dAng;
+                const px = cx + Math.cos(a) * r;
+                const py = cy + Math.sin(a) * r;
+
+                ctx.save();
+                ctx.translate(px, py);
+                // Tilt each segment slightly inward (+0.24 rad) relative to tangent -> creates powerful false spiral!
+                ctx.rotate(a + Math.PI / 2 + 0.24);
+
+                ctx.fillStyle = i % 2 === 0 ? '#000000' : '#ffffff';
+                ctx.fillRect(-9, -4.5, 18, 9);
+                ctx.restore();
+            }
+
+            // Highlight exact closed circle if mouse is near this ring or proof is checked
+            const isHovered = Math.abs(hoverRadius - r) < 15;
+            if (fraserProof.checked || isHovered) {
+                ctx.strokeStyle = isHovered ? '#00f2ff' : '#ff007b';
+                ctx.lineWidth = isHovered ? 4 : 2.5;
+                ctx.beginPath();
+                ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        });
+    }
+
+    function drawEbbinghaus() {
+        const W = canvas.width, H = canvas.height;
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, W, H);
+
+        const leftX = 230, rightX = 590, cy = H / 2;
+        const userRadius = parseInt(guessSlider.value);
+        const contextAlpha = revealedEbbinghaus ? 0.15 : 1.0;
+
+        // Surround Left target with 6 HUGE circles (makes center look smaller!)
+        ctx.save();
+        ctx.globalAlpha = contextAlpha;
+        ctx.fillStyle = '#38bdf8';
+        for (let i = 0; i < 6; i++) {
+            const a = (i / 6) * Math.PI * 2;
+            const d = trueTargetRadius + 78;
+            ctx.beginPath();
+            ctx.arc(leftX + Math.cos(a) * d, cy + Math.sin(a) * d, 52, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Surround Right target with 8 TINY circles (makes center look larger!)
+        for (let i = 0; i < 8; i++) {
+            const a = (i / 8) * Math.PI * 2;
+            const d = userRadius + 28;
+            ctx.beginPath();
+            ctx.arc(rightX + Math.cos(a) * d, cy + Math.sin(a) * d, 12, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
+
+        // Draw Left & Right Center Orange Circles
+        ctx.fillStyle = '#f97316';
+        ctx.beginPath();
+        ctx.arc(leftX, cy, trueTargetRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(rightX, cy, userRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // When scored, draw horizontal caliper lines proving the real sizes!
+        if (revealedEbbinghaus) {
+            ctx.strokeStyle = '#00f2ff';
+            ctx.lineWidth = 2.5;
+            ctx.setLineDash([6, 4]);
+            ctx.beginPath();
+            ctx.moveTo(leftX, cy - trueTargetRadius);
+            ctx.lineTo(rightX, cy - trueTargetRadius);
+            ctx.moveTo(leftX, cy + trueTargetRadius);
+            ctx.lineTo(rightX, cy + trueTargetRadius);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+    }
+
+    function render() {
+        if (currentTab === 'cafewall') drawCafeWall();
+        else if (currentTab === 'fraser') drawFraserSpiral();
+        else drawEbbinghaus();
+    }
+
+    render();
+</script>
+</body>
+</html>

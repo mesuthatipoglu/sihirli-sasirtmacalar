@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ters Yüz Yanılsaması (Thatcher Etkisi)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .app-layout {
+            display: grid;
+            grid-template-columns: 360px 1fr;
+            gap: 2rem;
+            align-items: start;
+        }
+        @media (max-width: 900px) {
+            .app-layout { grid-template-columns: 1fr; }
+        }
+
+        .panel {
+            background: var(--surface-light);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+        }
+
+        .stage-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .canvas-container {
+            position: relative;
+            background: #111;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+            border: 1px solid var(--border-color);
+            transition: transform 0.75s cubic-bezier(0.34, 1.56, 0.64, 1);
+            cursor: crosshair;
+        }
+
+        canvas {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+        }
+
+        .preset-btn {
+            flex: 1;
+            background: rgba(255,255,255,0.07);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 0.65rem 0.8rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        .preset-btn:hover, .preset-btn.active {
+            border-color: var(--accent-cyan);
+            background: rgba(0, 242, 255, 0.15);
+            color: var(--accent-cyan);
+        }
+
+        .file-upload {
+            display: block;
+            text-align: center;
+            padding: 0.75rem 1rem;
+            background: rgba(255,255,255,0.06);
+            border-radius: 8px;
+            cursor: pointer;
+            border: 1px dashed var(--border-color);
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: border-color 0.3s;
+        }
+        .file-upload:hover { border-color: var(--accent-cyan); }
+        .file-upload input { display: none; }
+
+        .angle-badge {
+            background: rgba(0, 242, 255, 0.12);
+            border: 1px solid var(--accent-cyan);
+            color: var(--accent-cyan);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header class="app-header">
+        <a href="../index.html" class="back-btn">
+            <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"></path></svg>
+            Ana Menü
+        </a>
+        <h1 class="app-title">Ters Yüz (Thatcher) Yanılsaması</h1>
+        <p class="app-subtitle">Baş aşağı duran bir yüzde gözler ve ağız ters çevrilse bile beyniniz bunu fark edemez... Ta ki resmi düz çevirene kadar!</p>
+    </header>
+
+    <div class="app-layout">
+        <div class="panel">
+            <div>
+                <label class="form-label">1. Portre Seçin veya Yükleyin</label>
+                <div class="btn-row">
+                    <button class="preset-btn active" id="preset1Btn">😊 Portre 1 (Gülümseyen)</button>
+                    <button class="preset-btn" id="preset2Btn">😮 Portre 2 (Neşeli)</button>
+                </div>
+                <div style="display:flex; gap:0.5rem; margin-top:0.6rem;">
+                    <label class="file-upload" style="flex:1;">
+                        📁 Fotoğraf Yükle
+                        <input type="file" id="imageInput" accept="image/*">
+                    </label>
+                    <button class="preset-btn" id="webcamBtn" style="flex:1;">📷 Kamera</button>
+                </div>
+            </div>
+
+            <div>
+                <label class="form-label">2. Döndürme Açısı: <span id="angleVal" style="color:var(--accent-cyan);">180° (Baş Aşağı)</span></label>
+                <input type="range" id="angleSlider" min="0" max="180" value="180" style="width:100%;">
+            </div>
+
+            <button class="primary-btn" id="rotateBtn" style="width:100%; font-size:1.05rem;">
+                🔄 RESMİ DÜZ ÇEVİR (ŞOKU GÖR!)
+            </button>
+
+            <div style="display:flex; gap:0.5rem;">
+                <button class="preset-btn active" id="toggleThatcherBtn" style="flex:1;">✨ Thatcher Efekti: AÇIK</button>
+                <button class="preset-btn" id="clearBtn" style="flex:1;">🗑️ Bölgeleri Sıfırla</button>
+            </div>
+
+            <p style="color:var(--text-muted); font-size:0.85rem; line-height:1.5; margin:0;">
+                <strong>Nasıl Çalışır?</strong> Kendi fotoğrafınızı yüklediğinizde fareyle <strong>gözlerin</strong> ve <strong>dudakların</strong> etrafına dikdörtgen çizin. Çizdiğiniz bölgeler yumuşak geçişle 180° ters çevrilir.
+            </p>
+        </div>
+
+        <div class="stage-area">
+            <div class="angle-badge" id="statusBanner">
+                🙃 Şu an baş aşağı bakıyorsunuz — Yüz oldukça normal görünüyor değil mi?
+            </div>
+
+            <div class="canvas-container" id="canvasContainer" style="transform: rotate(180deg);">
+                <canvas id="viewCanvas" width="560" height="560"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const imageInput = document.getElementById('imageInput');
+    const rotateBtn = document.getElementById('rotateBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const toggleThatcherBtn = document.getElementById('toggleThatcherBtn');
+    const angleSlider = document.getElementById('angleSlider');
+    const angleVal = document.getElementById('angleVal');
+    const statusBanner = document.getElementById('statusBanner');
+    const canvasContainer = document.getElementById('canvasContainer');
+    const canvas = document.getElementById('viewCanvas');
+    const ctx = canvas.getContext('2d');
+    const preset1Btn = document.getElementById('preset1Btn');
+    const preset2Btn = document.getElementById('preset2Btn');
+    const webcamBtn = document.getElementById('webcamBtn');
+
+    let baseCanvas = document.createElement('canvas');
+    baseCanvas.width = 560;
+    baseCanvas.height = 560;
+    let regions = []; // {x, y, w, h}
+    let effectEnabled = true;
+    let currentAngle = 180;
+
+    // Generate high-contrast realistic-shaded portrait on offscreen canvas so it works out of the box!
+    function generatePresetPortrait(variant = 1) {
+        const W = 560, H = 560;
+        baseCanvas.width = W;
+        baseCanvas.height = H;
+        const c = baseCanvas.getContext('2d');
+
+        // Studio backdrop
+        const bg = c.createRadialGradient(W/2, H/2, 50, W/2, H/2, 360);
+        bg.addColorStop(0, variant === 1 ? '#293855' : '#3b2447');
+        bg.addColorStop(1, '#0d1322');
+        c.fillStyle = bg;
+        c.fillRect(0, 0, W, H);
+
+        const cx = W / 2, cy = H / 2 + 15;
+
+        // Back hair
+        c.fillStyle = variant === 1 ? '#1e1612' : '#3a1f10';
+        c.beginPath();
+        c.arc(cx, cy - 45, 175, 0, Math.PI * 2);
+        c.fill();
+
+        // Neck & Shoulders
+        c.fillStyle = '#d89c7e';
+        c.fillRect(cx - 55, cy + 130, 110, 100);
+        c.fillStyle = variant === 1 ? '#0f172a' : '#7c2d12';
+        c.beginPath();
+        c.ellipse(cx, cy + 240, 210, 85, 0, Math.PI, Math.PI * 2);
+        c.fill();
+
+        // Ears
+        [-148, 148].forEach(ox => {
+            c.fillStyle = '#e5aa8c';
+            c.beginPath();
+            c.ellipse(cx + ox, cy + 5, 22, 42, 0, 0, Math.PI * 2);
+            c.fill();
+        });
+
+        // Face oval with warm 3D shading
+        const skin = c.createRadialGradient(cx - 30, cy - 40, 30, cx, cy, 185);
+        skin.addColorStop(0, '#ffeadb');
+        skin.addColorStop(0.65, '#f1ba9c');
+        skin.addColorStop(1, '#c58365');
+        c.fillStyle = skin;
+        c.beginPath();
+        c.ellipse(cx, cy, 148, 185, 0, 0, Math.PI * 2);
+        c.fill();
+
+        // Cheeks blush
+        [-75, 75].forEach(ox => {
+            const blush = c.createRadialGradient(cx + ox, cy + 32, 5, cx + ox, cy + 32, 42);
+            blush.addColorStop(0, 'rgba(225, 90, 95, 0.28)');
+            blush.addColorStop(1, 'rgba(225, 90, 95, 0)');
+            c.fillStyle = blush;
+            c.beginPath();
+            c.arc(cx + ox, cy + 32, 42, 0, Math.PI * 2);
+            c.fill();
+        });
+
+        // Eyebrows (distinct arch so orientation is strong)
+        c.strokeStyle = '#241711';
+        c.lineWidth = 9;
+        c.lineCap = 'round';
+        [-64, 64].forEach((ox, idx) => {
+            c.beginPath();
+            c.moveTo(cx + ox - 34, cy - 52 + (idx === 0 ? 4 : -2));
+            c.quadraticCurveTo(cx + ox, cy - 68, cx + ox + 34, cy - 50);
+            c.stroke();
+        });
+
+        // Eyes (Detailed upper eyelid, lashes, iris, catchlight, under-eye crease)
+        [-64, 64].forEach(ox => {
+            const ex = cx + ox, ey = cy - 22;
+
+            // Under-eye soft shadow
+            c.strokeStyle = 'rgba(145, 85, 65, 0.45)';
+            c.lineWidth = 3;
+            c.beginPath();
+            c.arc(ex, ey + 4, 28, 0.2 * Math.PI, 0.8 * Math.PI);
+            c.stroke();
+
+            // Sclera
+            c.fillStyle = '#ffffff';
+            c.beginPath();
+            c.moveTo(ex - 30, ey);
+            c.quadraticCurveTo(ex, ey - 22, ex + 30, ey);
+            c.quadraticCurveTo(ex, ey + 18, ex - 30, ey);
+            c.fill();
+
+            // Iris
+            const irisGrad = c.createRadialGradient(ex, ey - 2, 3, ex, ey - 2, 13);
+            irisGrad.addColorStop(0, variant === 1 ? '#38bdf8' : '#4ade80');
+            irisGrad.addColorStop(0.7, variant === 1 ? '#1e40af' : '#166534');
+            irisGrad.addColorStop(1, '#090d16');
+            c.fillStyle = irisGrad;
+            c.beginPath();
+            c.arc(ex, ey - 1, 12.5, 0, Math.PI * 2);
+            c.fill();
+
+            // Pupil
+            c.fillStyle = '#05070b';
+            c.beginPath();
+            c.arc(ex, ey - 1, 5.5, 0, Math.PI * 2);
+            c.fill();
+
+            // Catchlight
+            c.fillStyle = '#ffffff';
+            c.beginPath();
+            c.arc(ex - 4, ey - 5, 3, 0, Math.PI * 2);
+            c.fill();
+
+            // Heavy upper lash line (makes upside-down eye inversion super dramatic!)
+            c.strokeStyle = '#120a07';
+            c.lineWidth = 5.5;
+            c.beginPath();
+            c.moveTo(ex - 32, ey + 1);
+            c.quadraticCurveTo(ex, ey - 23, ex + 32, ey + 1);
+            c.stroke();
+
+            // Upper eyelid crease
+            c.strokeStyle = 'rgba(110, 60, 45, 0.65)';
+            c.lineWidth = 2.5;
+            c.beginPath();
+            c.moveTo(ex - 28, ey - 10);
+            c.quadraticCurveTo(ex, ey - 29, ex + 28, ey - 10);
+            c.stroke();
+        });
+
+        // Nose with bridge, tip highlight & nostrils
+        c.strokeStyle = 'rgba(145, 85, 65, 0.55)';
+        c.lineWidth = 3.5;
+        c.beginPath();
+        c.moveTo(cx - 8, cy - 25);
+        c.lineTo(cx - 12, cy + 32);
+        c.stroke();
+
+        c.fillStyle = 'rgba(120, 65, 45, 0.7)';
+        c.beginPath();
+        c.ellipse(cx - 12, cy + 40, 7, 4, 0.3, 0, Math.PI * 2);
+        c.ellipse(cx + 12, cy + 40, 7, 4, -0.3, 0, Math.PI * 2);
+        c.fill();
+
+        // Smiling Mouth with bright upper teeth & dark cavity (crucial for Thatcher effect!)
+        const mx = cx, my = cy + 92;
+        c.save();
+        c.beginPath();
+        c.moveTo(mx - 68, my - 8);
+        c.quadraticCurveTo(mx, my + 8, mx + 68, my - 8);
+        c.quadraticCurveTo(mx, my + 58, mx - 68, my - 8);
+        c.closePath();
+        c.clip();
+
+        // Dark mouth interior
+        c.fillStyle = '#380811';
+        c.fillRect(mx - 80, my - 30, 160, 90);
+
+        // Tongue at bottom of mouth
+        c.fillStyle = '#db4b63';
+        c.beginPath();
+        c.ellipse(mx, my + 34, 42, 20, 0, 0, Math.PI * 2);
+        c.fill();
+
+        // Prominent upper row of white teeth
+        c.fillStyle = '#ffffff';
+        c.fillRect(mx - 54, my - 10, 108, 22);
+        c.strokeStyle = '#cbd5e1';
+        c.lineWidth = 1.5;
+        for (let tx = -40; tx <= 40; tx += 16) {
+            c.beginPath();
+            c.moveTo(mx + tx, my - 10);
+            c.lineTo(mx + tx, my + 12);
+            c.stroke();
+        }
+        c.restore();
+
+        // Lips outline
+        c.strokeStyle = '#b93848';
+        c.lineWidth = 6;
+        c.beginPath();
+        c.moveTo(mx - 68, my - 8);
+        c.quadraticCurveTo(mx, my + 8, mx + 68, my - 8);
+        c.quadraticCurveTo(mx, my + 58, mx - 68, my - 8);
+        c.stroke();
+
+        // Top hair bang
+        c.fillStyle = variant === 1 ? '#1e1612' : '#3a1f10';
+        c.beginPath();
+        c.moveTo(cx - 148, cy - 40);
+        c.quadraticCurveTo(cx - 40, cy - 150, cx + 148, cy - 45);
+        c.quadraticCurveTo(cx + 80, cy - 210, cx, cy - 205);
+        c.quadraticCurveTo(cx - 110, cy - 200, cx - 148, cy - 40);
+        c.fill();
+
+        // Pre-populate exact eye and mouth regions for Thatcher inversion!
+        regions = [
+            { x: cx - 64 - 44, y: cy - 22 - 28, w: 88, h: 54 }, // Left Eye
+            { x: cx + 64 - 44, y: cy - 22 - 28, w: 88, h: 54 }, // Right Eye
+            { x: mx - 78,      y: my - 22,      w: 156, h: 74 } // Smiling Mouth
+        ];
+    }
+
+    function updateRotationUI(deg) {
+        currentAngle = deg;
+        angleSlider.value = deg;
+        canvasContainer.style.transform = `rotate(${deg}deg)`;
+        if (deg > 110) {
+            angleVal.innerText = `${deg}° (Baş Aşağı)`;
+            rotateBtn.innerText = '🔄 RESMİ DÜZ ÇEVİR (ŞOKU GÖR!)';
+            statusBanner.innerText = '🙃 Şu an baş aşağı bakıyorsunuz — Yüz oldukça normal görünüyor değil mi?';
+            statusBanner.style.borderColor = 'var(--accent-cyan)';
+            statusBanner.style.color = 'var(--accent-cyan)';
+        } else {
+            angleVal.innerText = `${deg}° (Düz Açı)`;
+            rotateBtn.innerText = '🙃 TEKRAR BAŞ AŞAĞI ÇEVİR';
+            statusBanner.innerText = '😱 DÜZ ÇEVRİLDİ! Beyniniz düz açıda ters göz ve ağzı anında yakaladı!';
+            statusBanner.style.borderColor = '#ff007b';
+            statusBanner.style.color = '#ff6fa9';
+        }
+    }
+
+    function render() {
+        canvas.width = baseCanvas.width;
+        canvas.height = baseCanvas.height;
+        ctx.drawImage(baseCanvas, 0, 0);
+
+        if (effectEnabled) {
+            regions.forEach(r => {
+                const tempC = document.createElement('canvas');
+                tempC.width = r.w;
+                tempC.height = r.h;
+                const tCtx = tempC.getContext('2d');
+                tCtx.drawImage(baseCanvas, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
+
+                // Draw rotated 180 degrees inside a soft elliptical clip
+                ctx.save();
+                ctx.beginPath();
+                ctx.ellipse(r.x + r.w / 2, r.y + r.h / 2, r.w / 2, r.h / 2, 0, 0, Math.PI * 2);
+                ctx.clip();
+
+                ctx.translate(r.x + r.w / 2, r.y + r.h / 2);
+                ctx.rotate(Math.PI);
+                ctx.drawImage(tempC, -r.w / 2, -r.h / 2);
+                ctx.restore();
+            });
+        }
+
+        if (currentRect) {
+            ctx.strokeStyle = '#00f2ff';
+            ctx.lineWidth = 2.5;
+            ctx.setLineDash([6, 4]);
+            ctx.strokeRect(currentRect.x, currentRect.y, currentRect.w, currentRect.h);
+            ctx.setLineDash([]);
+        }
+    }
+
+    // Drag to add custom inverted region
+    let isDragging = false;
+    let startX = 0, startY = 0;
+    let currentRect = null;
+
+    function getCanvasMouse(e) {
+        const rect = canvas.getBoundingClientRect();
+        let mx = e.clientX - rect.left;
+        let my = e.clientY - rect.top;
+        // Convert screen coords through current rotation angle around center
+        const cx = rect.width / 2;
+        const cy = rect.height / 2;
+        const rad = (-currentAngle * Math.PI) / 180;
+        const dx = mx - cx;
+        const dy = my - cy;
+        const rx = dx * Math.cos(rad) - dy * Math.sin(rad) + cx;
+        const ry = dx * Math.sin(rad) + dy * Math.cos(rad) + cy;
+        return {
+            x: rx * (canvas.width / rect.width),
+            y: ry * (canvas.height / rect.height)
+        };
+    }
+
+    canvas.addEventListener('mousedown', e => {
+        const pt = getCanvasMouse(e);
+        isDragging = true;
+        startX = pt.x;
+        startY = pt.y;
+        currentRect = { x: pt.x, y: pt.y, w: 0, h: 0 };
+    });
+
+    window.addEventListener('mousemove', e => {
+        if (!isDragging || !currentRect) return;
+        const pt = getCanvasMouse(e);
+        currentRect.w = pt.x - startX;
+        currentRect.h = pt.y - startY;
+        render();
+    });
+
+    window.addEventListener('mouseup', () => {
+        if (!isDragging || !currentRect) return;
+        let { x, y, w, h } = currentRect;
+        if (w < 0) { x += w; w = Math.abs(w); }
+        if (h < 0) { y += h; h = Math.abs(h); }
+        if (w > 15 && h > 15) {
+            regions.push({ x, y, w, h });
+        }
+        currentRect = null;
+        isDragging = false;
+        render();
+    });
+
+    rotateBtn.addEventListener('click', () => {
+        updateRotationUI(currentAngle > 90 ? 0 : 180);
+    });
+
+    angleSlider.addEventListener('input', () => {
+        canvasContainer.style.transition = 'none';
+        updateRotationUI(parseInt(angleSlider.value));
+        setTimeout(() => {
+            canvasContainer.style.transition = 'transform 0.75s cubic-bezier(0.34, 1.56, 0.64, 1)';
+        }, 50);
+    });
+
+    toggleThatcherBtn.addEventListener('click', () => {
+        effectEnabled = !effectEnabled;
+        toggleThatcherBtn.classList.toggle('active', effectEnabled);
+        toggleThatcherBtn.innerText = effectEnabled ? '✨ Thatcher Efekti: AÇIK' : '🚫 Thatcher Efekti: KAPALI';
+        render();
+    });
+
+    clearBtn.addEventListener('click', () => {
+        regions = [];
+        render();
+    });
+
+    preset1Btn.addEventListener('click', () => {
+        preset1Btn.classList.add('active');
+        preset2Btn.classList.remove('active');
+        generatePresetPortrait(1);
+        updateRotationUI(180);
+        render();
+    });
+
+    preset2Btn.addEventListener('click', () => {
+        preset2Btn.classList.add('active');
+        preset1Btn.classList.remove('active');
+        generatePresetPortrait(2);
+        updateRotationUI(180);
+        render();
+    });
+
+    imageInput.addEventListener('change', e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+            const img = new Image();
+            img.onload = () => {
+                const maxDim = 600;
+                const scale = Math.min(maxDim / img.width, maxDim / img.height, 1);
+                baseCanvas.width = Math.round(img.width * scale);
+                baseCanvas.height = Math.round(img.height * scale);
+                baseCanvas.getContext('2d').drawImage(img, 0, 0, baseCanvas.width, baseCanvas.height);
+                regions = [];
+                updateRotationUI(180);
+                render();
+            };
+            img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+
+    webcamBtn.addEventListener('click', async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 560, height: 560 } });
+            const video = document.createElement('video');
+            video.srcObject = stream;
+            await video.play();
+            baseCanvas.width = 560;
+            baseCanvas.height = 560;
+            baseCanvas.getContext('2d').drawImage(video, 0, 0, 560, 560);
+            stream.getTracks().forEach(t => t.stop());
+            // Default eye/mouth regions in center of webcam frame
+            regions = [
+                { x: 165, y: 205, w: 90, h: 55 },
+                { x: 305, y: 205, w: 90, h: 55 },
+                { x: 200, y: 335, w: 160, h: 70 }
+            ];
+            updateRotationUI(180);
+            render();
+        } catch (err) {
+            alert('Kamera erişimi sağlanamadı veya reddedildi.');
+        }
+    });
+
+    // Initialize immediately with Preset 1!
+    generatePresetPortrait(1);
+    updateRotationUI(180);
+    render();
+</script>
+</body>
+</html>

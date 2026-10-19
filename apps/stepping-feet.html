@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adımlayan Ayaklar (Stepping Feet) Hız İllüzyonu</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .app-layout {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.25rem;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            justify-content: center;
+            align-items: center;
+            background: var(--surface-light);
+            padding: 1rem 1.4rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            width: 100%;
+            max-width: 860px;
+        }
+
+        .mode-btn {
+            background: rgba(255,255,255,0.07);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 0.55rem 1.1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        .mode-btn:hover, .mode-btn.active {
+            background: var(--accent-cyan);
+            color: #000;
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .stage-container {
+            width: 100%;
+            max-width: 860px;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.65);
+        }
+
+        canvas {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header class="app-header">
+        <a href="../index.html" class="back-btn">
+            <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"></path></svg>
+            Ana Menü
+        </a>
+        <h1 class="app-title">Adımlayan Ayaklar (Stepping Feet)</h1>
+        <p class="app-subtitle">Sarı ve lacivert kutular %100 sabit ve eşit hızda kayıyor. Peki neden sırayla adım atıyormuş ("tık-tık-tık") gibi görünüyorlar?</p>
+    </header>
+
+    <div class="app-layout">
+        <div class="toolbar">
+            <button class="mode-btn active" data-mode="linear">👣 Yatay Yürüyüş Pisti</button>
+            <button class="mode-btn" data-mode="radial">🎡 Dairesel Çark Pisti</button>
+            <button class="mode-btn" id="holdHideBtn" style="background:rgba(255,0,123,0.18); border-color:#ff007b; color:#ff80b5;">
+                🪄 Çizgileri Gizle / Göster (Kanıt)
+            </button>
+        </div>
+
+        <div class="stage-container">
+            <canvas id="mainCanvas" width="860" height="440"></canvas>
+        </div>
+
+        <div class="toolbar">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:0.88rem; color:var(--text-muted); font-weight:600;">Izgara Opaklığı:</span>
+                <input type="range" id="stripeAlpha" min="0" max="100" value="100" style="width:120px;">
+            </div>
+
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:0.88rem; color:var(--text-muted); font-weight:600;">Çizgi Genişliği:</span>
+                <input type="range" id="stripeWidth" min="10" max="36" value="18" style="width:110px;">
+            </div>
+
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:0.88rem; color:var(--text-muted); font-weight:600;">Hareket Hızı:</span>
+                <input type="range" id="speedSlider" min="5" max="35" value="14" style="width:110px;">
+            </div>
+
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:700; font-size:0.9rem;">
+                <input type="checkbox" id="laserGuide" style="width:18px; height:18px;">
+                📏 Hizalama Lazerini Göster
+            </label>
+        </div>
+
+        <p style="color:var(--text-muted); text-align:center; max-width:740px; font-size:0.95rem; line-height:1.5; margin:0;">
+            <strong>Bilimsel Açıklama:</strong> Gözünüz kutuların kendisine değil, ekrandaki merkezi <strong>+</strong> noktasına baktığında etki çok daha güçlüdür! Sarı kutu beyaz şeritten geçerken kontrast düşer ve beyniniz onu yavaşlamış sanır; lacivert kutu ise siyah şeritten geçerken yavaşlamış sanılır.
+        </p>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d');
+    const stripeAlpha = document.getElementById('stripeAlpha');
+    const stripeWidth = document.getElementById('stripeWidth');
+    const speedSlider = document.getElementById('speedSlider');
+    const laserGuide = document.getElementById('laserGuide');
+    const holdHideBtn = document.getElementById('holdHideBtn');
+
+    let currentMode = 'linear';
+    let posX = 120;
+    let dir = 1;
+    let angle = 0;
+
+    document.querySelectorAll('.mode-btn[data-mode]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.mode-btn[data-mode]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentMode = btn.dataset.mode;
+        });
+    });
+
+    holdHideBtn.addEventListener('click', () => {
+        if (parseInt(stripeAlpha.value) > 10) {
+            stripeAlpha.value = 0;
+            holdHideBtn.classList.add('active');
+            holdHideBtn.innerText = '🦓 Çizgileri Geri Getir';
+        } else {
+            stripeAlpha.value = 100;
+            holdHideBtn.classList.remove('active');
+            holdHideBtn.innerText = '🪄 Çizgileri Gizle / Göster (Kanıt)';
+        }
+    });
+
+    function drawLinear() {
+        const W = canvas.width, H = canvas.height;
+        const sw = parseInt(stripeWidth.value);
+        const alpha = parseInt(stripeAlpha.value) / 100;
+        const spd = parseInt(speedSlider.value) * 0.1;
+
+        // Neutral gray base when stripes are faded out
+        ctx.fillStyle = '#808080';
+        ctx.fillRect(0, 0, W, H);
+
+        // Alternating Black & White vertical stripes
+        if (alpha > 0) {
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            for (let x = 0; x < W; x += sw) {
+                const isWhite = Math.floor(x / sw) % 2 === 0;
+                ctx.fillStyle = isWhite ? '#ffffff' : '#000000';
+                ctx.fillRect(x, 0, sw, H);
+            }
+            ctx.restore();
+        }
+
+        // Update constant velocity position
+        const boxW = sw * 4.2;
+        const boxH = 44;
+        posX += spd * dir;
+        if (posX + boxW > W - 40) dir = -1;
+        if (posX < 40) dir = 1;
+
+        // Top Pair & Bottom Pair of Stepping Feet
+        const yPositions = [
+            { y: 115, color: '#fef08a' }, // Bright Yellow
+            { y: 185, color: '#0f172a' }, // Dark Navy
+            { y: 275, color: '#fef08a' },
+            { y: 345, color: '#0f172a' }
+        ];
+
+        yPositions.forEach(b => {
+            ctx.fillStyle = b.color;
+            ctx.fillRect(posX, b.y - boxH / 2, boxW, boxH);
+        });
+
+        // Fixation cross in center
+        ctx.fillStyle = '#ff0055';
+        ctx.beginPath();
+        ctx.arc(W / 2, H / 2, 7, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Proof Laser Line connecting all 4 blocks vertically
+        if (laserGuide.checked) {
+            ctx.strokeStyle = '#ff0055';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(posX + boxW / 2, 50);
+            ctx.lineTo(posX + boxW / 2, H - 50);
+            ctx.stroke();
+        }
+    }
+
+    function drawRadial() {
+        const W = canvas.width, H = canvas.height;
+        const cx = W / 2, cy = H / 2;
+        const alpha = parseInt(stripeAlpha.value) / 100;
+        const spd = parseInt(speedSlider.value) * 0.0012;
+        const sectors = 72;
+
+        ctx.fillStyle = '#808080';
+        ctx.fillRect(0, 0, W, H);
+
+        if (alpha > 0) {
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            const dAng = (Math.PI * 2) / sectors;
+            for (let i = 0; i < sectors; i++) {
+                ctx.fillStyle = i % 2 === 0 ? '#ffffff' : '#000000';
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.arc(cx, cy, 480, i * dAng, (i + 1) * dAng);
+                ctx.closePath();
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        angle += spd;
+        const arcSpan = 0.24;
+
+        // Draw 2 opposite pairs of Yellow (outer) and Navy (inner) arcs
+        [0, Math.PI].forEach(offset => {
+            const a0 = angle + offset;
+
+            // Outer Yellow Arc
+            ctx.strokeStyle = '#fef08a';
+            ctx.lineWidth = 34;
+            ctx.beginPath();
+            ctx.arc(cx, cy, 165, a0, a0 + arcSpan);
+            ctx.stroke();
+
+            // Inner Dark Blue Arc
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 34;
+            ctx.beginPath();
+            ctx.arc(cx, cy, 115, a0, a0 + arcSpan);
+            ctx.stroke();
+
+            if (laserGuide.checked) {
+                const midA = a0 + arcSpan / 2;
+                ctx.strokeStyle = '#ff0055';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(cx + Math.cos(midA) * 85, cy + Math.sin(midA) * 85);
+                ctx.lineTo(cx + Math.cos(midA) * 195, cy + Math.sin(midA) * 195);
+                ctx.stroke();
+            }
+        });
+
+        // Fixation dot in center
+        ctx.fillStyle = '#ff0055';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    function loop() {
+        if (currentMode === 'linear') drawLinear();
+        else drawRadial();
+        requestAnimationFrame(loop);
+    }
+
+    loop();
+</script>
+</body>
+</html>

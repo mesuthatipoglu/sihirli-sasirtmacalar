@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>İllüzyon Laboratuvarı – İnteraktif Algı ve Beyin Deneyleri</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body {
+            font-family: 'Outfit', 'Inter', sans-serif;
+            overflow-x: hidden;
+            background: radial-gradient(circle at top right, #1f0c38, #0b0f1a 60%);
+        }
+
+        .hero {
+            text-align: center;
+            padding: 3.5rem 1.5rem 1.5rem;
+            position: relative;
+        }
+
+        .hero::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PHBhdGggZD0iTTAgMGg0MHY0MEgweiIgZmlsbD0ibm9uZSIvPjxwYXRoIGQ9Ik0wIDBoMnYySDB6bTIwIDIwaDJ2Mkgwem0xMCAxMGgydjJIMHptLTIwIDBoMnYySDB6IiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIi8+PC9zdmc+') repeat;
+            z-index: -1;
+            opacity: 0.5;
+        }
+
+        .hero-badge {
+            display: inline-block;
+            background: rgba(0, 242, 255, 0.12);
+            border: 1px solid rgba(0, 242, 255, 0.35);
+            color: var(--accent-cyan);
+            padding: 6px 16px;
+            border-radius: 30px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            letter-spacing: 0.5px;
+        }
+
+        .hero h1 {
+            font-size: 3.8rem;
+            font-weight: 900;
+            background: linear-gradient(135deg, #ff007b, #a855f7, #00f2ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0 0 1rem 0;
+            letter-spacing: -1px;
+            animation: textGlow 3s infinite alternate;
+        }
+
+        @keyframes textGlow {
+            from { text-shadow: 0 0 10px rgba(0, 242, 255, 0); }
+            to { text-shadow: 0 0 25px rgba(0, 242, 255, 0.35); }
+        }
+
+        .hero p {
+            font-size: 1.15rem;
+            color: var(--text-muted);
+            max-width: 680px;
+            margin: 0 auto 1.75rem;
+            line-height: 1.6;
+        }
+
+        .filter-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.65rem;
+            justify-content: center;
+            align-items: center;
+            max-width: 1100px;
+            margin: 0 auto 1rem;
+            padding: 0 1.5rem;
+        }
+
+        .filter-btn {
+            background: var(--surface-light);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 0.55rem 1.15rem;
+            border-radius: 30px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.25s;
+        }
+        .filter-btn:hover, .filter-btn.active {
+            background: var(--accent-cyan);
+            color: #050811;
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 18px var(--accent-glow);
+        }
+
+        .random-btn {
+            background: linear-gradient(135deg, #ff007b, #7000ff);
+            color: #fff;
+            border: none;
+            padding: 0.58rem 1.25rem;
+            border-radius: 30px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 0 18px rgba(255, 0, 123, 0.35);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .random-btn:hover {
+            transform: translateY(-2px) scale(1.03);
+            box-shadow: 0 0 25px rgba(255, 0, 123, 0.65);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+            gap: 1.6rem;
+            padding: 1.5rem 2rem 4rem;
+            max-width: 1340px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: var(--surface-light);
+            border: 1px solid var(--border-color);
+            border-radius: 18px;
+            padding: 1.85rem 1.6rem;
+            text-align: center;
+            text-decoration: none;
+            color: var(--text-main);
+            transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+            transition: left 0.5s;
+        }
+
+        .card:hover {
+            transform: translateY(-8px) scale(1.02);
+            border-color: var(--accent-cyan);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.5), 0 0 22px var(--accent-glow);
+        }
+
+        .card:hover::before {
+            left: 100%;
+        }
+
+        .card-badge {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            font-size: 0.68rem;
+            font-weight: 800;
+            padding: 3px 9px;
+            border-radius: 12px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .badge-new {
+            background: linear-gradient(135deg, #ff007b, #7000ff);
+            color: #fff;
+            box-shadow: 0 0 12px rgba(255, 0, 123, 0.45);
+        }
+        .badge-upgraded {
+            background: rgba(0, 242, 255, 0.16);
+            color: var(--accent-cyan);
+            border: 1px solid rgba(0, 242, 255, 0.35);
+        }
+
+        .icon {
+            font-size: 2.9rem;
+            margin-bottom: 0.2rem;
+            filter: drop-shadow(0 0 10px rgba(255,255,255,0.2));
+            transition: transform 0.3s;
+        }
+
+        .card:hover .icon {
+            transform: scale(1.14) rotate(5deg);
+        }
+
+        .card h2 {
+            font-size: 1.35rem;
+            font-weight: 800;
+            margin: 0;
+        }
+
+        .card p {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin: 0;
+            line-height: 1.45;
+            flex-grow: 1;
+        }
+
+        @media (max-width: 680px) {
+            .hero h1 { font-size: 2.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="hero">
+        <div class="hero-badge">🧠 20 İNTERAKTİF DENEY • OPTİK & İŞİTSEL ALGI LABORATUVARI</div>
+        <h1>Büyüleyici İllüzyonlar</h1>
+        <p>İnsan beyninin görsel ve işitsel kısayollarının nasıl kandırılabileceğini interaktif kanıt araçlarıyla deneyimleyin, kendi illüzyonlarınızı yaratın!</p>
+
+        <div class="filter-bar">
+            <button class="filter-btn active" data-cat="all">✨ Tümü (20)</button>
+            <button class="filter-btn" data-cat="3d">🧊 3D & Stereogram</button>
+            <button class="filter-btn" data-cat="motion">🌀 Hareket & Geometri</button>
+            <button class="filter-btn" data-cat="color">🎨 Renk & Retinal</button>
+            <button class="filter-btn" data-cat="brain">🗣️ Ses & Beyin</button>
+            <button class="random-btn" id="randomBtn">🎲 Rastgele Deney Aç</button>
+        </div>
+    </header>
+
+    <div class="grid" id="cardsGrid">
+        <!-- NEWEST MODULES -->
+        <a href="apps/rotating-snakes.html" class="card" data-cat="motion">
+            <span class="card-badge badge-new">YENİ</span>
+            <div class="icon">🐍</div>
+            <h2>Fırıldak Yılanlar (Kitaoka)</h2>
+            <p>%100 hareketsiz çarkların gözlerinizi gezdirdiğinizde kendiliğinden döndüğü meşhur çevresel sürüklenme yanılsaması!</p>
+        </a>
+
+        <a href="apps/scintillating-grid.html" class="card" data-cat="color">
+            <span class="card-badge badge-new">YENİ</span>
+            <div class="icon">✨</div>
+            <h2>Parıldayan Izgara & 12 Nokta</h2>
+            <p>Beyaz kavşaklarda çakan hayalet siyah kıvılcımlar ve aynı anda asla göremediğiniz 12 siyah nokta (Ninio) testi.</p>
+        </a>
+
+        <a href="apps/wagon-wheel.html" class="card" data-cat="motion">
+            <span class="card-badge badge-new">YENİ</span>
+            <div class="icon">💧</div>
+            <h2>Stroboskopik Zaman (Su & Tekerlek)</h2>
+            <p>Strobe ışık frekansıyla su damlalarını havada dondurun, yerçekimine karşı yukarı akıtın veya tekerleği geriye döndürün!</p>
+        </a>
+
+        <a href="apps/hollow-mask.html" class="card" data-cat="3d">
+            <span class="card-badge badge-new">YENİ</span>
+            <div class="icon">🎭</div>
+            <h2>Çukur Maske & Ay Krateri</h2>
+            <p>Işık yönünü çevirerek kraterleri tepeye dönüştürün ve içbükey çukur maskenin sizi nasıl gözleriyle takip ettiğini görün.</p>
+        </a>
+
+        <a href="apps/motion-aftereffect.html" class="card" data-cat="motion">
+            <span class="card-badge badge-new">YENİ</span>
+            <div class="icon">🌊</div>
+            <h2>Eriyen Dünya (Hareket Artık Etkisi)</h2>
+            <p>15 saniye hipnotik spirale baktıktan sonra tamamen sabit tabloların nasıl dalgalanıp eridiğine şahit olun.</p>
+        </a>
+
+        <a href="apps/stepping-feet.html" class="card" data-cat="motion">
+            <span class="card-badge badge-new">YENİ</span>
+            <div class="icon">👣</div>
+            <h2>Adımlayan Ayaklar İllüzyonu</h2>
+            <p>Eşit ve sabit hızda kayan sarı ve lacivert kutuların neden sırayla adım atıyormuş gibi göründüğünü lazerle kanıtlayın.</p>
+        </a>
+
+        <a href="apps/afterimage-illusion.html" class="card" data-cat="color">
+            <span class="card-badge badge-new">YENİ</span>
+            <div class="icon">🏰</div>
+            <h2>Hayalet Renkler (İspanyol Kalesi)</h2>
+            <p>Ters renkli görüntüye odaklandıktan sonra %100 siyah-beyaz fotoğrafı beyninizin nasıl rengarenk boyadığını görün.</p>
+        </a>
+
+        <a href="apps/ames-window.html" class="card" data-cat="3d">
+            <span class="card-badge badge-new">YENİ</span>
+            <div class="icon">🪟</div>
+            <h2>Ames Penceresi & Bistabil 3D</h2>
+            <p>Tam tur dönen yamuk pencerenin neden sallanıyormuş gibi göründüğünü ve içinden geçen çubuğun çerçeveyi nasıl deldiğini inceleyin.</p>
+        </a>
+
+        <a href="apps/geometric-illusions.html" class="card" data-cat="motion">
+            <span class="card-badge badge-new">YENİ</span>
+            <div class="icon">📐</div>
+            <h2>Kafe Duvarı, Sahte Spiral & Oyun</h2>
+            <p>Dümdüz çizgileri büken Kafe Duvarı, aslında tam daire olan Fraser Spirali ve Ebbinghaus boyut eşitleme mini oyunu!</p>
+        </a>
+
+        <a href="apps/kinetic-depth.html" class="card" data-cat="3d">
+            <span class="card-badge badge-new">YENİ</span>
+            <div class="icon">🌐</div>
+            <h2>Kinetik Derinlik & Kamuflaj</h2>
+            <p>Sadece noktaların hareketiyle beliren 3 boyutlu cisimler! Hareketi dondurduğunuz an 3D şekil rastgele noktaların içinde kaybolur.</p>
+        </a>
+
+        <!-- UPGRADED EXISTING MODULES -->
+        <a href="apps/penrose-studio.html" class="card" data-cat="3d">
+            <span class="card-badge badge-upgraded">YENİLENDİ</span>
+            <div class="icon">🧊</div>
+            <h2>İmkansız 3D Şekiller (Penrose)</h2>
+            <p>Penrose Üçgeni, Sonsuz Merdiven ve Anıt Vadisi kemerini 3D kamerayla çevirip sihirli açının sırrını çözün.</p>
+        </a>
+
+        <a href="apps/sihirligoz.html" class="card" data-cat="3d">
+            <span class="card-badge badge-upgraded">YENİLENDİ</span>
+            <div class="icon">💫</div>
+            <h2>Şaşı Bak Şaşır (Sihirli Göz)</h2>
+            <p>Hazır 3D modeller (Köpekbalığı, Satürn, Dalga) veya emojilerle saniyeler içinde yüksek kaliteli autostereogram üretin.</p>
+        </a>
+
+        <a href="apps/crosseye-3d.html" class="card" data-cat="3d">
+            <span class="card-badge badge-upgraded">YENİLENDİ</span>
+            <div class="icon">👀</div>
+            <h2>Çapraz Göz (Cross-Eye) 3D</h2>
+            <p>4 gerçek zamanlı 3D stereo sahne (Kristal, Uzay Tüneli, Dağ Manzarası, DNA) veya kendi fotoğraflarınızla gözlüksüz 3D!</p>
+        </a>
+
+        <a href="apps/color-illusion.html" class="card" data-cat="color">
+            <span class="card-badge badge-upgraded">YENİLENDİ</span>
+            <div class="icon">🎨</div>
+            <h2>Renk İllüzyonu Laboratuvarı</h2>
+            <p>Adelson Gölge Satrancı, Munker-White ve Meşhur Elbise illüzyonlarını canlı piksel HEX okuyucu ve kanıt köprüleriyle test edin.</p>
+        </a>
+
+        <a href="apps/moire-animation.html" class="card" data-cat="motion">
+            <span class="card-badge badge-upgraded">YENİLENDİ</span>
+            <div class="icon">🦓</div>
+            <h2>Hare (Moiré / Scanimation)</h2>
+            <p>Koşan at, Pac-Man, çarpan kalp ve çarkları siyah ızgarayı kaydırarak canlandırın; ızgarayı kaldırıp sırrı görün.</p>
+        </a>
+
+        <a href="apps/squint-illusion.html" class="card" data-cat="brain">
+            <span class="card-badge badge-upgraded">YENİLENDİ</span>
+            <div class="icon">👁️‍🗨️</div>
+            <h2>Kısık Göz (Hibrit Görsel)</h2>
+            <p>Yakından bakınca başka, gözlerinizi kısınca veya uzaklaşınca bambaşka görünen çift katmanlı hibrit görseller yaratın.</p>
+        </a>
+
+        <a href="apps/thatcher-effect.html" class="card" data-cat="brain">
+            <span class="card-badge badge-upgraded">YENİLENDİ</span>
+            <div class="icon">🙃</div>
+            <h2>Ters Yüz (Thatcher) Yanılsaması</h2>
+            <p>Hazır portreler, kamera veya kendi fotoğrafınızla baş aşağı yüzlerdeki korkunç değişimi beyninizin nasıl kaçırdığını görün.</p>
+        </a>
+
+        <a href="apps/blind-spot.html" class="card" data-cat="color">
+            <span class="card-badge badge-upgraded">YENİLENDİ</span>
+            <div class="icon">🌑</div>
+            <h2>Kör Nokta & Troxler Silicisi</h2>
+            <p>Leylak Takibi (Troxler Solması), Anatomik Optik Kör Nokta testi ve beynin kesik çizgiyi uydurma deneyleri bir arada!</p>
+        </a>
+
+        <a href="apps/shepard-tone.html" class="card" data-cat="brain">
+            <span class="card-badge badge-upgraded">YENİLENDİ</span>
+            <div class="icon">🌀</div>
+            <h2>Sonsuz Ses & Ritim (Shepard)</h2>
+            <p>Sonsuza dek yükselen Shepard Glissando, 12 notalı sonsuz merdiven ve sürekli hızlanan Risset Ritmi sentezleyicisi.</p>
+        </a>
+
+        <a href="apps/mcgurk-effect.html" class="card" data-cat="brain">
+            <span class="card-badge badge-upgraded">YENİLENDİ</span>
+            <div class="icon">🗣️</div>
+            <h2>Ses-Görüntü Çatışması (McGurk)</h2>
+            <p>Formant ses motoru ve gerçekçi ağız/dil animasyonuyla gördüğünüz dudak hareketinin duyduğunuz sesi nasıl değiştirdiğini kanıtlayın.</p>
+        </a>
+    </div>
+
+    <script>
+        const filterBtns = document.querySelectorAll('.filter-btn');
+        const cards = Array.from(document.querySelectorAll('.card'));
+        const randomBtn = document.getElementById('randomBtn');
+
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const cat = btn.dataset.cat;
+                cards.forEach(card => {
+                    card.style.display = (cat === 'all' || card.dataset.cat === cat) ? 'flex' : 'none';
+                });
+            });
+        });
+
+        randomBtn.addEventListener('click', () => {
+            const pick = cards[Math.floor(Math.random() * cards.length)];
+            window.location.href = pick.getAttribute('href');
+        });
+    </script>
+</body>
+</html>

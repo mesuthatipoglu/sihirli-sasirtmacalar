@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parıldayan Izgara & 12 Nokta Yok Oluşu</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .app-layout {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.25rem;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            justify-content: center;
+            align-items: center;
+            background: var(--surface-light);
+            padding: 1rem 1.25rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            width: 100%;
+            max-width: 860px;
+        }
+
+        .tab-btn {
+            background: rgba(255,255,255,0.07);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 0.6rem 1.1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        .tab-btn:hover, .tab-btn.active {
+            background: var(--accent-cyan);
+            color: #000;
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .canvas-box {
+            width: 100%;
+            max-width: 840px;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.65);
+            background: #000;
+        }
+
+        canvas {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header class="app-header">
+        <a href="../index.html" class="back-btn">
+            <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"></path></svg>
+            Ana Menü
+        </a>
+        <h1 class="app-title">Parıldayan Izgara & 12 Nokta Yok Oluşu</h1>
+        <p class="app-subtitle">Retinanızdaki "Yanal İnhibisyon" (komşu hücrelerin birbirini baskılaması) yüzünden var olmayan siyah noktalar görecek veya var olan 12 noktayı aynı anda asla göremeyeceksiniz!</p>
+    </header>
+
+    <div class="app-layout">
+        <div class="toolbar">
+            <button class="tab-btn active" data-mode="scintillating">⚡ 1. Parıldayan Hayalet Noktalar (Scintillating Grid)</button>
+            <button class="tab-btn" data-mode="ninio">🕳️ 2. Ninio'nun 12 Nokta Yok Oluş Testi</button>
+            <button class="tab-btn" id="highlightAllBtn" style="background:rgba(255,0,123,0.18); border-color:#ff007b; color:#ff85b8;">
+                🔦 Noktaları Parlat (Kanıtla)
+            </button>
+        </div>
+
+        <div class="canvas-box">
+            <canvas id="mainCanvas" width="840" height="520"></canvas>
+        </div>
+
+        <div class="toolbar">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:0.88rem; color:var(--text-muted); font-weight:600;">Izgara Aralığı:</span>
+                <input type="range" id="spacingSlider" min="42" max="76" value="56" style="width:130px;">
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:0.88rem; color:var(--text-muted); font-weight:600;">Çizgi Kalınlığı:</span>
+                <input type="range" id="lineSlider" min="4" max="16" value="10" style="width:130px;">
+            </div>
+        </div>
+
+        <p id="descText" style="color:var(--text-muted); text-align:center; max-width:760px; font-size:0.95rem; line-height:1.5; margin:0;">
+            <strong>Deney 1:</strong> Kesişimlerdeki dairelerin tamamı <strong>%100 bembeyazdır</strong>. Ancak gözünüzü ızgara üzerinde gezdirdiğinizde bakmadığınız köşelerde <strong>simsiyah noktaların çaktığını</strong> göreceksiniz. Doğrudan bir köşeye odaklandığınızda ise siyah nokta anında kaybolur!
+        </p>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d');
+    const spacingSlider = document.getElementById('spacingSlider');
+    const lineSlider = document.getElementById('lineSlider');
+    const highlightAllBtn = document.getElementById('highlightAllBtn');
+    const descText = document.getElementById('descText');
+
+    let currentMode = 'scintillating';
+    let highlightProof = false;
+
+    document.querySelectorAll('.tab-btn[data-mode]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tab-btn[data-mode]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentMode = btn.dataset.mode;
+            if (currentMode === 'scintillating') {
+                descText.innerHTML = '<strong>Deney 1:</strong> Kesişimlerdeki dairelerin tamamı <strong>%100 bembeyazdır</strong>. Ancak gözünüzü ızgara üzerinde gezdirdiğinizde bakmadığınız köşelerde <strong>simsiyah noktaların çaktığını</strong> göreceksiniz!';
+            } else {
+                descText.innerHTML = '<strong>Deney 2 (Ninio\'nun 12 Noktası):</strong> Bu ızgarada tam <strong>12 adet siyah nokta</strong> vardır. Ancak insan beyni bu 12 noktayı aynı anda <strong>ASLA göremez!</strong> Nereye bakarsanız sadece oradaki 2-3 noktayı görürsünüz, diğer 9 nokta beyniniz tarafından silinir!';
+            }
+            render();
+        });
+    });
+
+    highlightAllBtn.addEventListener('click', () => {
+        highlightProof = !highlightProof;
+        highlightAllBtn.classList.toggle('active', highlightProof);
+        render();
+    });
+
+    [spacingSlider, lineSlider].forEach(el => el.addEventListener('input', render));
+
+    function drawScintillatingGrid() {
+        const W = canvas.width, H = canvas.height;
+        const step = parseInt(spacingSlider.value);
+        const lw = parseInt(lineSlider.value);
+
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, W, H);
+
+        // Gray streets
+        ctx.strokeStyle = '#787878';
+        ctx.lineWidth = lw;
+
+        for (let x = step; x < W; x += step) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+        }
+        for (let y = step; y < H; y += step) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+        }
+
+        // Pure white discs at every intersection
+        const discR = lw * 0.72;
+        ctx.fillStyle = highlightProof ? '#00f2ff' : '#ffffff';
+        for (let x = step; x < W; x += step) {
+            for (let y = step; y < H; y += step) {
+                ctx.beginPath();
+                ctx.arc(x, y, discR, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+    }
+
+    function drawNinioExtinction() {
+        const W = canvas.width, H = canvas.height;
+        const step = 60;
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, W, H);
+
+        ctx.strokeStyle = '#b4b4b4';
+        ctx.lineWidth = 3.5;
+
+        // Horizontal and Vertical lines
+        for (let x = 0; x <= W; x += step) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+        }
+        for (let y = 0; y <= H; y += step) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+        }
+
+        // Diagonal lines (45 deg both ways passing through grid intersections!)
+        for (let k = -H; k <= W + H; k += step) {
+            ctx.beginPath(); ctx.moveTo(k, 0); ctx.lineTo(k + H, H); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(k, 0); ctx.lineTo(k - H, H); ctx.stroke();
+        }
+
+        // 12 Black Dots placed at every 3rd intersection (3 rows x 4 cols)
+        const cols = [3, 6, 9, 12];
+        const rows = [2, 5, 8];
+
+        rows.forEach(r => {
+            cols.forEach(c => {
+                const px = c * step - 30;
+                const py = r * step - 20;
+                // Wait: align dot directly onto exact grid intersection `(c * step, r * step)`!
+                const gx = c * step - 60;
+                const gy = r * step - 30;
+            });
+        });
+
+        // Exact intersections: x = c * step, y = r * step
+        const dotCols = [3, 6, 8, 11];
+        const dotRows = [2, 4, 7];
+
+        dotRows.forEach(r => {
+            dotCols.forEach(c => {
+                const gx = c * step;
+                const gy = r * step;
+
+                // White halo + black dot (or bright red ring when proof mode is active)
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(gx, gy, 8.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = highlightProof ? '#ff0055' : '#000000';
+                ctx.beginPath();
+                ctx.arc(gx, gy, highlightProof ? 9 : 6, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        });
+    }
+
+    function render() {
+        if (currentMode === 'scintillating') drawScintillatingGrid();
+        else drawNinioExtinction();
+    }
+
+    render();
+</script>
+</body>
+</html>

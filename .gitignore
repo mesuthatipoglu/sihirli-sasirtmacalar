@@ -1,0 +1,10 @@
+*.pdf
+*.env
+*.env.*
+*.key
+*.pem
+*.log
+.DS_Store
+Thumbs.db
+node_modules/
+__pycache__/

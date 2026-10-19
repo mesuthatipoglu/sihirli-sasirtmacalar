@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Çapraz Göz (Cross-Eye) 3D Stüdyosu</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .app-layout {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.15rem;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+            justify-content: center;
+            background: var(--surface-light);
+            padding: 0.9rem 1.25rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            width: 100%;
+            max-width: 960px;
+        }
+
+        .scene-btn {
+            background: rgba(255,255,255,0.07);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 0.55rem 0.95rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.88rem;
+            transition: all 0.2s;
+        }
+        .scene-btn:hover, .scene-btn.active {
+            background: var(--accent-cyan);
+            color: #000;
+            border-color: var(--accent-cyan);
+            font-weight: 800;
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .guide-banner {
+            width: 100%;
+            max-width: 960px;
+            background: rgba(0, 242, 255, 0.08);
+            border: 1px solid rgba(0, 242, 255, 0.35);
+            border-radius: 12px;
+            padding: 0.85rem 1.25rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 0.75rem;
+            font-size: 0.86rem;
+            line-height: 1.45;
+        }
+        .guide-step strong {
+            color: var(--accent-cyan);
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .viewer {
+            width: 100%;
+            max-width: 960px;
+            text-align: center;
+        }
+
+        #viewCanvas {
+            width: 100%;
+            height: auto;
+            background: #05070e;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.65);
+            display: block;
+            margin: 0 auto;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            width: 100%;
+            max-width: 960px;
+            background: var(--surface-light);
+            padding: 1.15rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+        }
+
+        .upload-row {
+            display: none;
+            gap: 1rem;
+            width: 100%;
+            max-width: 960px;
+            justify-content: center;
+        }
+        .upload-row.visible { display: flex; }
+
+        .drop-zone {
+            flex: 1;
+            border: 2px dashed var(--border-color);
+            background: var(--surface-light);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            text-align: center;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .drop-zone input { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header class="app-header">
+        <a href="../index.html" class="back-btn">
+            <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"></path></svg>
+            Ana Menü
+        </a>
+        <h1 class="app-title">Çapraz Göz (Cross-Eye) 3D Stüdyosu</h1>
+        <p class="app-subtitle">Kolay odaklama için optimize edilmiş 6 cm (~240px) ideal göz aralığı! Üstteki 2 halkayı ortada 3 halka olana kadar birleştirin.</p>
+    </header>
+
+    <div class="app-layout">
+        <div class="guide-banner">
+            <div class="guide-step">
+                <strong>1. Mesafe (~50 cm) & Boyut</strong>
+                Ekrandan yaklaşık bir kol boyu (50 cm) uzakta durun. Kutular büyük gelirse alttan <em>"Kare Boyutu (Göz Aralığı)"</em> çubuğunu küçültün.
+            </div>
+            <div class="guide-step">
+                <strong>2. İşaret Parmağı Hilesi ☝️</strong>
+                Parmağınızı ekranla burnunuzun tam ortasında tutun. Gözünüzle parmağınızın ucuna bakarken arka plandaki 2 kutunun ortada <strong>3 kutu</strong> olduğunu göreceksiniz.
+            </div>
+            <div class="guide-step">
+                <strong>3. Ortadaki 3. Kutuya Odaklanın 🎯</strong>
+                Üstteki beyaz halka ile artı (+) işareti ortadaki 3. kutuda tam üst üste bindiğinde parmağınızı çekin; <strong>cam gibi 3D derinlik</strong> kilitlenecektir!
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <button class="scene-btn active" data-scene="room">🕸️ 3D Derinlik Odası & Küreler</button>
+            <button class="scene-btn" data-scene="crystal">💎 3D Kristal & Yörünge</button>
+            <button class="scene-btn" data-scene="landscape">🏔️ Katmanlı Dağ & Orman</button>
+            <button class="scene-btn" data-scene="dna">🧬 3D DNA Sarmalı</button>
+            <button class="scene-btn" data-scene="custom">📁 Kendi Fotoğrafını Yükle</button>
+        </div>
+
+        <div class="upload-row" id="uploadRow">
+            <label class="drop-zone">
+                📷 <span id="leftName">Sol Göz Fotoğrafı Seç</span>
+                <input type="file" id="leftFile" accept="image/*">
+            </label>
+            <label class="drop-zone">
+                📷 <span id="rightName">Sağ Göz Fotoğrafı Seç</span>
+                <input type="file" id="rightFile" accept="image/*">
+            </label>
+        </div>
+
+        <div class="viewer">
+            <canvas id="viewCanvas" width="900" height="420"></canvas>
+        </div>
+
+        <div class="controls-grid">
+            <div>
+                <label class="form-label">Kare Boyutu & Göz Aralığı: <span id="boxSizeVal" style="color:var(--accent-cyan);">250px (İdeal ~6cm)</span></label>
+                <input type="range" id="boxSizeSlider" min="150" max="380" value="250" style="width:100%;">
+            </div>
+            <div>
+                <label class="form-label">3D Derinlik Gücü: <span id="depthVal" style="color:var(--accent-cyan);">100%</span></label>
+                <input type="range" id="depthSlider" min="30" max="180" value="100" style="width:100%;">
+            </div>
+            <div>
+                <label class="form-label">Bakış Modu</label>
+                <select id="viewMode" class="form-control" style="padding:0.45rem;">
+                    <option value="cross">👀 Çapraz Göz (Cross-Eye - Önerilen)</option>
+                    <option value="parallel">🔭 Paralel Bakış (Uzağa Bakış)</option>
+                    <option value="wiggle">⚡ Wiggle 3D (Tek Kutu Otomatik 3D)</option>
+                </select>
+            </div>
+            <div style="display:flex; flex-direction:column; justify-content:center; gap:0.45rem;">
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.88rem;">
+                    <input type="checkbox" id="animateToggle" checked style="width:17px; height:17px;">
+                    3D Hareketi Oynat
+                </label>
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.88rem;">
+                    <input type="checkbox" id="showGrid" checked style="width:17px; height:17px;">
+                    3D Referans Kafesini Göster
+                </label>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('viewCanvas');
+    const ctx = canvas.getContext('2d');
+    const boxSizeSlider = document.getElementById('boxSizeSlider');
+    const boxSizeVal = document.getElementById('boxSizeVal');
+    const depthSlider = document.getElementById('depthSlider');
+    const depthVal = document.getElementById('depthVal');
+    const viewMode = document.getElementById('viewMode');
+    const animateToggle = document.getElementById('animateToggle');
+    const showGrid = document.getElementById('showGrid');
+    const uploadRow = document.getElementById('uploadRow');
+    const leftFile = document.getElementById('leftFile');
+    const rightFile = document.getElementById('rightFile');
+    const leftName = document.getElementById('leftName');
+    const rightName = document.getElementById('rightName');
+
+    let currentScene = 'room';
+    let time = 0;
+    let img1 = null, img2 = null;
+
+    document.querySelectorAll('.scene-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.scene-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentScene = btn.dataset.scene;
+            uploadRow.classList.toggle('visible', currentScene === 'custom');
+        });
+    });
+
+    boxSizeSlider.addEventListener('input', () => {
+        const px = parseInt(boxSizeSlider.value);
+        const cm = (px / 38).toFixed(1);
+        boxSizeVal.innerText = `${px}px (~${cm}cm)`;
+    });
+
+    depthSlider.addEventListener('input', () => {
+        depthVal.innerText = depthSlider.value + '%';
+    });
+
+    function loadImage(file) {
+        return new Promise(resolve => {
+            const r = new FileReader();
+            r.onload = e => {
+                const i = new Image();
+                i.onload = () => resolve(i);
+                i.src = e.target.result;
+            };
+            r.readAsDataURL(file);
+        });
+    }
+
+    leftFile.addEventListener('change', async e => {
+        if (e.target.files[0]) {
+            leftName.innerText = e.target.files[0].name;
+            img1 = await loadImage(e.target.files[0]);
+        }
+    });
+
+    rightFile.addEventListener('change', async e => {
+        if (e.target.files[0]) {
+            rightName.innerText = e.target.files[0].name;
+            img2 = await loadImage(e.target.files[0]);
+        }
+    });
+
+    // Calibrated binocular projection within comfortable Panum's fusional disparity!
+    function project3D(x, y, z, eyeSign, vpCenterX, vpCenterY, boxSize) {
+        const normScale = boxSize / 260;
+        const depthMul = (parseInt(depthSlider.value) / 100) * 0.14;
+        const eyeX = eyeSign * depthMul;
+        const fov = 260 * normScale;
+        const camDist = 4.8;
+        const rz = z + camDist;
+        const scale = fov / Math.max(0.8, rz);
+        const disparity = (eyeX * z * fov) / Math.max(0.8, rz);
+        return {
+            x: vpCenterX + x * scale + disparity,
+            y: vpCenterY + y * scale,
+            scale: scale / (60 * normScale),
+            z: rz
+        };
+    }
+
+    function drawReferenceRoomGrid(eyeSign, cx, cy, boxSize) {
+        if (!showGrid.checked) return;
+        // Draw a 3D tunnel room from z = 0 (screen frame) to z = +2.4 (deep inside screen)
+        const depths = [0, 0.8, 1.6, 2.4];
+        ctx.strokeStyle = 'rgba(0, 242, 255, 0.18)';
+        ctx.lineWidth = 1.2;
+
+        const corners = [[-1.6, -1.6], [1.6, -1.6], [1.6, 1.6], [-1.6, 1.6]];
+        depths.forEach(z => {
+            ctx.beginPath();
+            corners.forEach(([x, y], idx) => {
+                const p = project3D(x, y, z, eyeSign, cx, cy, boxSize);
+                if (idx === 0) ctx.moveTo(p.x, p.y);
+                else ctx.lineTo(p.x, p.y);
+            });
+            ctx.closePath();
+            ctx.stroke();
+        });
+
+        // 4 corner depth rails
+        corners.forEach(([x, y]) => {
+            const p0 = project3D(x, y, 0, eyeSign, cx, cy, boxSize);
+            const p1 = project3D(x, y, 2.4, eyeSign, cx, cy, boxSize);
+            ctx.beginPath();
+            ctx.moveTo(p0.x, p0.y);
+            ctx.lineTo(p1.x, p1.y);
+            ctx.stroke();
+        });
+    }
+
+    function drawViewport(eyeSign, vx, vy, boxW, boxH, targetType) {
+        const cx = vx + boxW / 2;
+        const cy = vy + boxH / 2 + 16;
+
+        // Draw Fusion Lock Target above the box:
+        // Left box gets a Cyan Ring, Right box gets a Cyan Cross (+)!
+        // When fused properly, you see a Cross (+) INSIDE a Ring (⊕)!
+        const dotY = vy + 16;
+        if (targetType === 'ring' || targetType === 'both') {
+            ctx.strokeStyle = '#00f2ff';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(cx, dotY, 10, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        if (targetType === 'cross' || targetType === 'both') {
+            ctx.strokeStyle = '#ff007b';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(cx - 7, dotY); ctx.lineTo(cx + 7, dotY);
+            ctx.moveTo(cx, dotY - 7); ctx.lineTo(cx, dotY + 7);
+            ctx.stroke();
+        }
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(vx, vy + 34, boxW, boxH, 10);
+        ctx.clip();
+
+        // Viewport background
+        const bg = ctx.createRadialGradient(cx, cy, 10, cx, cy, boxW * 0.7);
+        bg.addColorStop(0, '#141e33');
+        bg.addColorStop(1, '#070a12');
+        ctx.fillStyle = bg;
+        ctx.fillRect(vx, vy + 34, boxW, boxH);
+
+        drawReferenceRoomGrid(eyeSign, cx, cy, boxW);
+
+        if (currentScene === 'room') {
+            // 3 Distinct Depth Layers of Floating Rings & Spheres (Far Z=+1.8, Mid Z=0, Pop-Out Z=-1.1)
+            const items = [
+                { x: -0.7, y: -0.6, z: 1.6, r: 16, hue: 200, label: 'UZAK' },
+                { x: 0.75, y: 0.55, z: 1.2, r: 18, hue: 260, label: '' },
+                { x: -0.65, y: 0.6, z: 0.1, r: 21, hue: 150, label: 'ORTA' },
+                { x: 0.65, y: -0.55, z: -0.45, r: 24, hue: 45, label: '' },
+                { x: Math.cos(time) * 0.35, y: Math.sin(time) * 0.35, z: -1.15, r: 28, hue: 335, label: 'ÖNDE!' }
+            ];
+
+            // Connect items with 3D depth rods to floor
+            items.sort((a, b) => b.z - a.z);
+            items.forEach(it => {
+                const p = project3D(it.x, it.y, it.z, eyeSign, cx, cy, boxW);
+                const pBack = project3D(it.x, it.y, 2.2, eyeSign, cx, cy, boxW);
+
+                ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(pBack.x, pBack.y);
+                ctx.lineTo(p.x, p.y);
+                ctx.stroke();
+
+                const rad = Math.max(6, it.r * (boxW / 260) * p.scale * 0.85);
+                const g = ctx.createRadialGradient(p.x - rad*0.3, p.y - rad*0.3, 2, p.x, p.y, rad);
+                g.addColorStop(0, '#ffffff');
+                g.addColorStop(0.35, `hsl(${it.hue}, 95%, 60%)`);
+                g.addColorStop(1, `hsl(${it.hue}, 95%, 18%)`);
+                ctx.fillStyle = g;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, rad, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        } else if (currentScene === 'crystal') {
+            const verts = [
+                {x: 0, y: -1.25, z: 0},
+                {x: 0, y: 1.25, z: 0},
+                {x: -1.1, y: 0, z: -1.1},
+                {x: 1.1, y: 0, z: -1.1},
+                {x: 1.1, y: 0, z: 1.1},
+                {x: -1.1, y: 0, z: 1.1}
+            ].map(v => {
+                const cY = Math.cos(time * 0.8), sY = Math.sin(time * 0.8);
+                const cX = Math.cos(0.35), sX = Math.sin(0.35);
+                const x1 = v.x * cY - v.z * sY;
+                const z1 = v.x * sY + v.z * cY;
+                const y2 = v.y * cX - z1 * sX;
+                const z2 = v.y * sX + z1 * cX;
+                return project3D(x1, y2, z2, eyeSign, cx, cy, boxW);
+            });
+
+            const edges = [
+                [0,2],[0,3],[0,4],[0,5],
+                [1,2],[1,3],[1,4],[1,5],
+                [2,3],[3,4],[4,5],[5,2]
+            ];
+            edges.forEach(([i, j]) => {
+                ctx.strokeStyle = '#00f2ff';
+                ctx.lineWidth = 2.4;
+                ctx.beginPath();
+                ctx.moveTo(verts[i].x, verts[i].y);
+                ctx.lineTo(verts[j].x, verts[j].y);
+                ctx.stroke();
+            });
+
+            const orbs = [];
+            for (let k = 0; k < 6; k++) {
+                const ang = time * 1.1 + (k * Math.PI * 2) / 6;
+                const p = project3D(Math.cos(ang) * 1.35, Math.sin(ang * 2) * 0.55, Math.sin(ang) * 1.25, eyeSign, cx, cy, boxW);
+                orbs.push({ ...p, hue: k * 60 });
+            }
+            orbs.sort((a, b) => b.z - a.z);
+            orbs.forEach(o => {
+                const r = Math.max(4, 12 * (boxW / 260) * o.scale);
+                ctx.fillStyle = `hsl(${o.hue}, 95%, 60%)`;
+                ctx.beginPath();
+                ctx.arc(o.x, o.y, r, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        } else if (currentScene === 'landscape') {
+            const sMul = boxW / 260;
+            const layers = [
+                { z: 1.8, draw: sx => {
+                    ctx.fillStyle = '#fef08a';
+                    ctx.beginPath();
+                    ctx.arc(cx + 50 * sMul + sx, cy - 65 * sMul, 24 * sMul, 0, Math.PI * 2);
+                    ctx.fill();
+                }},
+                { z: 0.9, draw: sx => {
+                    ctx.fillStyle = '#334155';
+                    ctx.beginPath();
+                    ctx.moveTo(cx - 140 * sMul + sx, cy + 120 * sMul);
+                    ctx.lineTo(cx - 45 * sMul + sx, cy - 35 * sMul);
+                    ctx.lineTo(cx + 25 * sMul + sx, cy + 35 * sMul);
+                    ctx.lineTo(cx + 80 * sMul + sx, cy - 25 * sMul);
+                    ctx.lineTo(cx + 140 * sMul + sx, cy + 120 * sMul);
+                    ctx.closePath();
+                    ctx.fill();
+                }},
+                { z: -0.75, draw: sx => {
+                    [-65, 0, 65].forEach((tx, idx) => {
+                        const px = cx + tx * sMul + sx;
+                        const py = cy + (45 + (idx === 1 ? 10 : 0)) * sMul;
+                        ctx.fillStyle = idx === 1 ? '#10b981' : '#059669';
+                        for (let tier = 0; tier < 3; tier++) {
+                            ctx.beginPath();
+                            ctx.moveTo(px, py - (40 - tier * 15) * sMul);
+                            ctx.lineTo(px - (24 + tier * 5) * sMul, py + tier * 16 * sMul);
+                            ctx.lineTo(px + (24 + tier * 5) * sMul, py + tier * 16 * sMul);
+                            ctx.closePath();
+                            ctx.fill();
+                        }
+                    });
+                }}
+            ];
+            layers.forEach(l => {
+                const p = project3D(0, 0, l.z, eyeSign, cx, cy, boxW);
+                l.draw(p.x - cx);
+            });
+        } else if (currentScene === 'dna') {
+            for (let i = -8; i <= 8; i++) {
+                const y = i * 0.16;
+                const ang = i * 0.48 + time * 1.4;
+                const r = 1.05;
+                const p1 = project3D(Math.cos(ang) * r, y, Math.sin(ang) * r, eyeSign, cx, cy, boxW);
+                const p2 = project3D(Math.cos(ang + Math.PI) * r, y, Math.sin(ang + Math.PI) * r, eyeSign, cx, cy, boxW);
+
+                ctx.strokeStyle = 'rgba(148, 163, 184, 0.45)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(p1.x, p1.y);
+                ctx.lineTo(p2.x, p2.y);
+                ctx.stroke();
+
+                [ [p1, '#00f2ff'], [p2, '#ff007b'] ].forEach(([pt, col]) => {
+                    ctx.fillStyle = col;
+                    ctx.beginPath();
+                    ctx.arc(pt.x, pt.y, Math.max(3.5, 7 * (boxW / 260) * pt.scale), 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            }
+        } else if (currentScene === 'custom') {
+            const targetImg = eyeSign < 0 ? img1 : img2;
+            if (targetImg) {
+                const scale = Math.min(boxW / targetImg.width, boxH / targetImg.height);
+                const nw = targetImg.width * scale;
+                const nh = targetImg.height * scale;
+                ctx.drawImage(targetImg, cx - nw / 2, cy - nh / 2, nw, nh);
+            } else {
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = '600 13px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillText(eyeSign < 0 ? 'Sol Fotoğraf' : 'Sağ Fotoğraf', cx, cy);
+            }
+        }
+
+        // High-contrast white/cyan stereo window frame (crucial anchor for binocular fusion!)
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(vx + 1.5, vy + 35.5, boxW - 3, boxH - 3);
+        ctx.restore();
+    }
+
+    function renderLoop() {
+        if (animateToggle.checked) {
+            time += 0.022;
+        }
+
+        ctx.fillStyle = '#05070e';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const boxSize = parseInt(boxSizeSlider.value);
+        const boxH = Math.min(340, Math.round(boxSize * 1.15));
+        const vy = Math.round((canvas.height - (boxH + 38)) / 2);
+        const mode = viewMode.value;
+
+        if (mode === 'wiggle') {
+            // Single viewport alternating between Left and Right eye every 140ms!
+            const wiggleEye = Math.floor(performance.now() / 140) % 2 === 0 ? -1 : 1;
+            const vx = (canvas.width - boxSize * 1.3) / 2;
+            drawViewport(wiggleEye, vx, vy, boxSize * 1.3, boxH, 'both');
+        } else {
+            const gap = 14; // Tight gap so centers are only `boxSize + 14` px apart!
+            const totalW = boxSize * 2 + gap;
+            const startX = Math.round((canvas.width - totalW) / 2);
+
+            const isCross = mode === 'cross';
+            const leftSlotEye = isCross ? 1 : -1;
+            const rightSlotEye = isCross ? -1 : 1;
+
+            drawViewport(leftSlotEye, startX, vy, boxSize, boxH, 'ring');
+            drawViewport(rightSlotEye, startX + boxSize + gap, vy, boxSize, boxH, 'cross');
+        }
+
+        requestAnimationFrame(renderLoop);
+    }
+
+    renderLoop();
+</script>
+</body>
+</html>

@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kör Nokta & Troxler Algı Silici</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .app-layout {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.25rem;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.65rem;
+            justify-content: center;
+            background: var(--surface-light);
+            padding: 1rem 1.25rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            width: 100%;
+            max-width: 860px;
+        }
+
+        .mode-btn {
+            background: rgba(255,255,255,0.07);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 0.6rem 1.1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        .mode-btn:hover, .mode-btn.active {
+            background: var(--accent-cyan);
+            color: #000;
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .canvas-area {
+            position: relative;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+            border: 1px solid var(--border-color);
+            width: 100%;
+            max-width: 860px;
+        }
+
+        canvas {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .controls-panel {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            align-items: center;
+            justify-content: center;
+            background: var(--surface-light);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 1rem 1.5rem;
+            width: 100%;
+            max-width: 860px;
+        }
+
+        .timer-pill {
+            font-size: 1.25rem;
+            font-weight: 900;
+            color: var(--accent-cyan);
+            font-variant-numeric: tabular-nums;
+            background: rgba(0, 242, 255, 0.1);
+            border: 1px solid var(--accent-cyan);
+            padding: 6px 18px;
+            border-radius: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header class="app-header">
+        <a href="../index.html" class="back-btn">
+            <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"></path></svg>
+            Ana Menü
+        </a>
+        <h1 class="app-title">Kör Nokta & Troxler Algı Silici</h1>
+        <p class="app-subtitle">Beyninizin sabit verileri nasıl sildiğini ve retinadaki fiziksel kör noktayı sahte görüntülerle nasıl doldurduğunu test edin.</p>
+    </header>
+
+    <div class="app-layout">
+        <div class="toolbar">
+            <button class="mode-btn active" data-mode="lilac">🌸 1. Leylak Takibi (Troxler Solması)</button>
+            <button class="mode-btn" data-mode="blindspot">🌑 2. Gerçek Anatomik Kör Nokta</button>
+            <button class="mode-btn" data-mode="fillin">🧠 3. Beynin Çizgi Tamamlama Hilesi</button>
+        </div>
+
+        <div class="controls-panel">
+            <div class="timer-pill">Odaklanma Süresi: <span id="timerVal">0.0</span>s</div>
+
+            <div id="lilacControls" style="display:flex; align-items:center; gap:12px;">
+                <span style="font-size:0.9rem; color:var(--text-muted); font-weight:600;">Dönüş Hızı:</span>
+                <input type="range" id="speedSlider" min="40" max="240" value="110" style="width:130px;">
+            </div>
+
+            <div id="blindControls" style="display:none; align-items:center; gap:12px;">
+                <span style="font-size:0.9rem; color:var(--text-muted); font-weight:600;">Hedef Konumu (Sağa/Sola Kaydır):</span>
+                <input type="range" id="posSlider" min="280" max="760" value="580" style="width:200px;">
+            </div>
+        </div>
+
+        <div class="canvas-area" id="testArea">
+            <canvas id="mainCanvas" width="860" height="480"></canvas>
+        </div>
+
+        <p id="instructionText" style="color:var(--text-muted); text-align:center; max-width:740px; font-size:0.98rem; line-height:1.5; margin:0;">
+            <strong>Talimat:</strong> Gözlerinizi hiç kırpmadan ve oynatmadan sadece ortadaki <strong>+</strong> işaretine bakın. <strong>5 saniye</strong> içinde boşlukta parlak <strong>yeşil bir disk</strong> belirecek; <strong>10 saniye</strong> içinde ise tüm pembe daireleri tek tek yutarak yok edecek!
+        </p>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d');
+    const timerVal = document.getElementById('timerVal');
+    const speedSlider = document.getElementById('speedSlider');
+    const posSlider = document.getElementById('posSlider');
+    const lilacControls = document.getElementById('lilacControls');
+    const blindControls = document.getElementById('blindControls');
+    const instructionText = document.getElementById('instructionText');
+    const testArea = document.getElementById('testArea');
+
+    let currentMode = 'lilac';
+    let focusTime = 0;
+    let hiddenIndex = 0;
+    let lastStepTime = 0;
+
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentMode = btn.dataset.mode;
+            focusTime = 0;
+
+            if (currentMode === 'lilac') {
+                lilacControls.style.display = 'flex';
+                blindControls.style.display = 'none';
+                instructionText.innerHTML = '<strong>Talimat:</strong> Gözlerinizi hiç oynatmadan sadece ortadaki <strong>+</strong> işaretine bakın. <strong>5 saniye</strong> içinde boşlukta parlak <strong>yeşil bir disk</strong> belirecek; <strong>10 saniye</strong> içinde tüm pembe daireler tamamen silinecek!';
+            } else if (currentMode === 'blindspot') {
+                lilacControls.style.display = 'none';
+                blindControls.style.display = 'flex';
+                instructionText.innerHTML = '<strong>Talimat:</strong> <strong>SOL gözünüzü elinizle kapatın.</strong> Sağ gözünüzle soldaki <strong>+</strong> işaretine sabit bakın ve üstteki kaydırıcıyı (veya başınızı ekrana yaklaştırıp uzaklaştırarak) hareket ettirin. Sağdaki parlak hedef tam kör noktanıza geldiğinde <strong>aniden %100 yok olacak!</strong>';
+            } else {
+                lilacControls.style.display = 'none';
+                blindControls.style.display = 'flex';
+                instructionText.innerHTML = '<strong>Talimat:</strong> Yine <strong>SOL gözünüzü kapatıp</strong> soldaki <strong>+</strong> işaretine bakın. Sağdaki kesik çubuğun ortasındaki boşluk kör noktanıza denk geldiğinde, beyniniz boşluğu görmezden gelip <strong>çubuğu kesintisiz tek parça olarak uyduracak!</strong>';
+            }
+        });
+    });
+
+    testArea.addEventListener('mousemove', () => {
+        if (currentMode === 'lilac') {
+            focusTime = 0;
+        }
+    });
+
+    setInterval(() => {
+        focusTime += 0.1;
+        timerVal.innerText = focusTime.toFixed(1);
+    }, 100);
+
+    function drawLilacChaser(now) {
+        const W = canvas.width, H = canvas.height;
+        // Neutral middle-gray is crucial for Troxler fading & complementary afterimage!
+        ctx.fillStyle = '#b0b0b0';
+        ctx.fillRect(0, 0, W, H);
+
+        const stepInterval = 280 - parseInt(speedSlider.value);
+        if (now - lastStepTime > stepInterval) {
+            hiddenIndex = (hiddenIndex + 1) % 12;
+            lastStepTime = now;
+        }
+
+        const cx = W / 2, cy = H / 2;
+        const radius = 165;
+        const numDiscs = 12;
+
+        for (let i = 0; i < numDiscs; i++) {
+            if (i === hiddenIndex) continue;
+            const ang = (i / numDiscs) * Math.PI * 2 - Math.PI / 2;
+            const dx = cx + Math.cos(ang) * radius;
+            const dy = cy + Math.sin(ang) * radius;
+
+            // Soft Gaussian radial gradient in magenta/lilac (no sharp edges = fades rapidly in periphery!)
+            const g = ctx.createRadialGradient(dx, dy, 2, dx, dy, 40);
+            g.addColorStop(0, 'rgba(235, 65, 195, 0.78)');
+            g.addColorStop(0.5, 'rgba(235, 65, 195, 0.38)');
+            g.addColorStop(1, 'rgba(176, 176, 176, 0)');
+
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(dx, dy, 40, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Crisp black fixation cross in center
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(cx - 10, cy); ctx.lineTo(cx + 10, cy);
+        ctx.moveTo(cx, cy - 10); ctx.lineTo(cx, cy + 10);
+        ctx.stroke();
+    }
+
+    function drawAnatomicalBlindSpot(isFillIn) {
+        const W = canvas.width, H = canvas.height;
+        ctx.fillStyle = '#0b0f1a';
+        ctx.fillRect(0, 0, W, H);
+
+        const fixX = 160;
+        const fixY = H / 2;
+        const targetX = parseInt(posSlider.value);
+
+        // Distance guide bar
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx.setLineDash([6, 6]);
+        ctx.beginPath();
+        ctx.moveTo(fixX, fixY);
+        ctx.lineTo(targetX, fixY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Left Fixation Cross (+)
+        ctx.strokeStyle = '#00f2ff';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(fixX - 16, fixY); ctx.lineTo(fixX + 16, fixY);
+        ctx.moveTo(fixX, fixY - 16); ctx.lineTo(fixX, fixY + 16);
+        ctx.stroke();
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '700 13px Inter';
+        ctx.textAlign = 'center';
+        ctx.fillText('SOL GÖZÜ KAPAT', fixX, fixY + 42);
+        ctx.fillText('BURAYA BAK (+)', fixX, fixY + 60);
+
+        if (!isFillIn) {
+            // Mode 2: Vanishing Glowing Orb
+            ctx.fillStyle = '#ff007b';
+            ctx.beginPath();
+            ctx.arc(targetX, fixY, 28, 0, Math.PI * 2);
+            ctx.fill();
+        } else {
+            // Mode 3: Broken Vertical Bar with a gap right at (targetX, fixY)
+            // When the gap lands on the blind spot, the visual cortex fills in the bar as continuous!
+            ctx.fillStyle = '#00f2ff';
+            const barW = 24;
+            const gapH = 54;
+            // Top segment
+            ctx.fillRect(targetX - barW / 2, fixY - 170, barW, 170 - gapH / 2);
+            // Bottom segment
+            ctx.fillRect(targetX - barW / 2, fixY + gapH / 2, barW, 170 - gapH / 2);
+        }
+    }
+
+    function loop(now) {
+        if (currentMode === 'lilac') {
+            drawLilacChaser(now);
+        } else if (currentMode === 'blindspot') {
+            drawAnatomicalBlindSpot(false);
+        } else {
+            drawAnatomicalBlindSpot(true);
+        }
+        requestAnimationFrame(loop);
+    }
+
+    requestAnimationFrame(loop);
+</script>
+</body>
+</html>

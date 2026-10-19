@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ames Penceresi & Bistabil 3D Algı Bükücü</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .app-layout {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.25rem;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.65rem;
+            justify-content: center;
+            align-items: center;
+            background: var(--surface-light);
+            padding: 1rem 1.25rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            width: 100%;
+            max-width: 860px;
+        }
+
+        .tab-btn {
+            background: rgba(255,255,255,0.07);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 0.6rem 1.1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        .tab-btn:hover, .tab-btn.active {
+            background: var(--accent-cyan);
+            color: #000;
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .stage-box {
+            width: 100%;
+            max-width: 820px;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.65);
+            background: radial-gradient(circle at center, #162038 0%, #070b14 100%);
+        }
+
+        canvas {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header class="app-header">
+        <a href="../index.html" class="back-btn">
+            <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"></path></svg>
+            Ana Menü
+        </a>
+        <h1 class="app-title">Ames Penceresi & Bistabil 3D Algı</h1>
+        <p class="app-subtitle">360° tam tur dönen bir pencerenin neden sağa-sola sallanıyormuş gibi göründüğünü ve içinden geçen çubuğun katı çerçeveyi nasıl delip geçtiğini keşfedin!</p>
+    </header>
+
+    <div class="app-layout">
+        <div class="toolbar">
+            <button class="tab-btn active" data-mode="ames">🪟 1. Efsanevi Ames Yamuk Penceresi</button>
+            <button class="tab-btn" data-mode="bistable">💃 2. Bistabil 3D Silüet (Ne Yöne Dönüyor?)</button>
+        </div>
+
+        <div class="stage-box">
+            <canvas id="mainCanvas" width="820" height="480"></canvas>
+        </div>
+
+        <!-- Ames Window Controls -->
+        <div class="toolbar" id="amesControls">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:700;">
+                <input type="checkbox" id="showRod" checked style="width:18px; height:18px;">
+                🪄 İçinden Geçen Neon Çubuğu Göster
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:700;">
+                <input type="checkbox" id="topDownRadar" checked style="width:18px; height:18px;">
+                🧭 Üstten Gerçek 360° Radar Görüntüsü
+            </label>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:0.88rem; color:var(--text-muted); font-weight:600;">Dönüş Hızı:</span>
+                <input type="range" id="speedSlider" min="2" max="25" value="10" style="width:110px;">
+            </div>
+        </div>
+
+        <!-- Bistable Silhouette Controls -->
+        <div class="toolbar" id="bistableControls" style="display:none;">
+            <span style="font-size:0.88rem; color:var(--text-muted); font-weight:700;">Beyin Yön Değiştirici İpucu:</span>
+            <button class="tab-btn active" data-cue="none">🕶️ Saf Silüet (Beyniniz Seçsin)</button>
+            <button class="tab-btn" data-cue="cw">↻ Saat Yönüne Zorla</button>
+            <button class="tab-btn" data-cue="ccw">↺ Saat Yönü Tersine Zorla</button>
+        </div>
+
+        <p style="color:var(--text-muted); text-align:center; max-width:740px; font-size:0.95rem; line-height:1.5; margin:0;">
+            <strong>Nasıl Çalışır?</strong> Ames penceresi aslında dikdörtgen değil, bir kenarı uzun bir kenarı kısa olan <strong>düz bir yamuktur</strong>. Beynimiz pencerelerin dikdörtgen olduğuna şartlandığı için, uzun kenar arkaya geçtiğinde bile onu "öndeymiş" gibi yorumlar ve tam tur dönüşü reddedip pencerenin geri döndüğünü sanır!
+        </p>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d');
+    const showRod = document.getElementById('showRod');
+    const topDownRadar = document.getElementById('topDownRadar');
+    const speedSlider = document.getElementById('speedSlider');
+
+    let currentMode = 'ames';
+    let cueMode = 'none';
+    let angle = 0;
+
+    document.querySelectorAll('.tab-btn[data-mode]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tab-btn[data-mode]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentMode = btn.dataset.mode;
+            document.getElementById('amesControls').style.display = currentMode === 'ames' ? 'flex' : 'none';
+            document.getElementById('bistableControls').style.display = currentMode === 'bistable' ? 'flex' : 'none';
+        });
+    });
+
+    document.querySelectorAll('.tab-btn[data-cue]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tab-btn[data-cue]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            cueMode = btn.dataset.cue;
+        });
+    });
+
+    function drawAmesWindow() {
+        const W = canvas.width, H = canvas.height;
+        const cx = W / 2, cy = H / 2;
+
+        // Suspension wire top & bottom
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cx, 0); ctx.lineTo(cx, H);
+        ctx.stroke();
+
+        // Orthographic X projection of window plane at angle `angle`:
+        // Window local X goes from -210 (Tall end, half-height = 165) to +210 (Short end, half-height = 68)
+        const cosA = Math.cos(angle);
+        const sinA = Math.sin(angle);
+
+        function winPt(u, vNorm) {
+            // u in [-1, 1], vNorm in [-1, 1]
+            const lx = u * 215;
+            // Linearly interpolate height from tall side (u=-1 -> 165) to short side (u=+1 -> 68)
+            const halfH = 165 * ((1 - u) / 2) + 68 * ((1 + u) / 2);
+            const ly = vNorm * halfH;
+            return {
+                x: cx + lx * cosA,
+                y: cy + ly,
+                z: lx * sinA
+            };
+        }
+
+        // Perpendicular rod passing through window pane at u = -0.35 along local Z axis [-160, +160]
+        const rodU = -0.32;
+        const rodHalfLen = 175;
+        const rodBackZ = -rodHalfLen * cosA;
+        const rodFrontZ = rodHalfLen * cosA;
+
+        function drawRodSegment(zStart, zEnd) {
+            const p0 = {
+                x: cx + (rodU * 215) * cosA - zStart * sinA,
+                y: cy + zStart * 0.25
+            };
+            const p1 = {
+                x: cx + (rodU * 215) * cosA - zEnd * sinA,
+                y: cy + zEnd * 0.25
+            };
+            ctx.strokeStyle = '#ff007b';
+            ctx.lineWidth = 14;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(p0.x, p0.y);
+            ctx.lineTo(p1.x, p1.y);
+            ctx.stroke();
+
+            ctx.strokeStyle = '#ffd1e8';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(p0.x, p0.y);
+            ctx.lineTo(p1.x, p1.y);
+            ctx.stroke();
+        }
+
+        // 1. Draw the half of the rod that is physically BEHIND the window plane (z > 0)
+        if (showRod.checked) {
+            if (cosA > 0) drawRodSegment(-rodHalfLen, 0);
+            else drawRodSegment(0, rodHalfLen);
+        }
+
+        // 2. Draw Trapezoidal Ames Window with 6 panes (3 columns x 2 rows) and painted fake 3D bevels!
+        const outer = [winPt(-1, -1), winPt(1, -1), winPt(1, 1), winPt(-1, 1)];
+        ctx.fillStyle = '#e2e8f0';
+        ctx.beginPath();
+        ctx.moveTo(outer[0].x, outer[0].y);
+        ctx.lineTo(outer[1].x, outer[1].y);
+        ctx.lineTo(outer[2].x, outer[2].y);
+        ctx.lineTo(outer[3].x, outer[3].y);
+        ctx.closePath();
+
+        // Cut out 6 trapezoidal window panes using evenodd winding!
+        const cols = [
+            [-0.86, -0.36],
+            [-0.24, 0.24],
+            [0.36, 0.86]
+        ];
+        const rows = [
+            [-0.82, -0.07],
+            [0.07, 0.82]
+        ];
+
+        cols.forEach(([u0, u1]) => {
+            rows.forEach(([v0, v1]) => {
+                const c0 = winPt(u0, v0);
+                const c1 = winPt(u1, v0);
+                const c2 = winPt(u1, v1);
+                const c3 = winPt(u0, v1);
+                ctx.moveTo(c0.x, c0.y);
+                ctx.lineTo(c3.x, c3.y);
+                ctx.lineTo(c2.x, c2.y);
+                ctx.lineTo(c1.x, c1.y);
+                ctx.closePath();
+            });
+        });
+        ctx.fill('evenodd');
+
+        // Painted fake depth jambs inside each pane (crucial perspective cue of Ames Window!)
+        cols.forEach(([u0, u1]) => {
+            rows.forEach(([v0, v1]) => {
+                const c0 = winPt(u0, v0);
+                const c1 = winPt(u1, v0);
+                const c2 = winPt(u1, v1);
+                const c3 = winPt(u0, v1);
+                const c1In = winPt(u1 - 0.06, v0 + 0.06);
+                const c2In = winPt(u1 - 0.06, v1 - 0.06);
+
+                ctx.fillStyle = '#475569';
+                ctx.beginPath();
+                ctx.moveTo(c1.x, c1.y);
+                ctx.lineTo(c2.x, c2.y);
+                ctx.lineTo(c2In.x, c2In.y);
+                ctx.lineTo(c1In.x, c1In.y);
+                ctx.closePath();
+                ctx.fill();
+            });
+        });
+
+        // 3. Draw the half of the rod that is physically IN FRONT OF the window plane!
+        if (showRod.checked) {
+            if (cosA > 0) drawRodSegment(0, rodHalfLen);
+            else drawRodSegment(-rodHalfLen, 0);
+        }
+
+        // 4. Top-Down True 360° Radar in top-right corner
+        if (topDownRadar.checked) {
+            const rx = W - 90, ry = 85, rr = 58;
+            ctx.fillStyle = 'rgba(11, 15, 26, 0.85)';
+            ctx.beginPath();
+            ctx.arc(rx, ry, rr, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(0, 242, 255, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Window line in top-down radar
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(rx - Math.cos(angle) * 42, ry - Math.sin(angle) * 42);
+            ctx.lineTo(rx + Math.cos(angle) * 42, ry + Math.sin(angle) * 42);
+            ctx.stroke();
+
+            // Rod line in top-down radar
+            if (showRod.checked) {
+                ctx.strokeStyle = '#ff007b';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(rx - Math.sin(angle) * 32, ry + Math.cos(angle) * 32);
+                ctx.lineTo(rx + Math.sin(angle) * 32, ry - Math.cos(angle) * 32);
+                ctx.stroke();
+            }
+
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '700 11px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillText('GERÇEK ÜST BAKIŞ (360°)', rx, ry + rr + 16);
+        }
+    }
+
+    function drawBistableFigure() {
+        const W = canvas.width, H = canvas.height;
+        const cx = W / 2, cy = H / 2;
+
+        // Spinning 3D Gymnast / Figure + Orbital Ring in pure Orthographic Projection!
+        // When cueMode === 'none', front and back are drawn identically so the brain can flip spin direction at will!
+        const dir = cueMode === 'ccw' ? -1 : 1;
+        const a = angle * dir;
+
+        // Floor shadow ellipse
+        ctx.strokeStyle = 'rgba(0, 242, 255, 0.25)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + 175, 130, 28, 0, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 3D Joints of a graceful spinning pose: [x, y, z]
+        const joints = {
+            head: [0, -145, 0],
+            neck: [0, -110, 0],
+            lShoulder: [-38, -100, 0],
+            rShoulder: [38, -100, 0],
+            lElbow: [-85, -135, 35],
+            rElbow: [75, -65, -40],
+            lHand: [-105, -180, 55],
+            rHand: [115, -35, -65],
+            waist: [0, -25, 0],
+            hip: [0, 15, 0],
+            lKnee: [-12, 95, 10],
+            lFoot: [-8, 175, 0],
+            rKnee: [75, 55, -55],
+            rFoot: [125, 95, -85]
+        };
+
+        function proj([x, y, z]) {
+            const rx = x * Math.cos(a) - z * Math.sin(a);
+            const rz = x * Math.sin(a) + z * Math.cos(a);
+            return { x: cx + rx, y: cy + y, z: rz };
+        }
+
+        const p = {};
+        for (const k in joints) p[k] = proj(joints[k]);
+
+        const limbs = [
+            ['neck', 'waist', 26],
+            ['waist', 'hip', 28],
+            ['lShoulder', 'rShoulder', 18],
+            ['lShoulder', 'lElbow', 13],
+            ['lElbow', 'lHand', 11],
+            ['rShoulder', 'rElbow', 13],
+            ['rElbow', 'rHand', 11],
+            ['hip', 'lKnee', 16],
+            ['lKnee', 'lFoot', 13],
+            ['hip', 'rKnee', 16],
+            ['rKnee', 'rFoot', 13]
+        ];
+
+        // Sort limbs by Z if depth cues are enabled
+        const sortedLimbs = limbs.map(([j1, j2, w]) => ({
+            p1: p[j1],
+            p2: p[j2],
+            w,
+            z: (p[j1].z + p[j2].z) / 2
+        }));
+
+        if (cueMode !== 'none') {
+            sortedLimbs.sort((A, B) => A.z - B.z);
+        }
+
+        // Head
+        ctx.fillStyle = '#00f2ff';
+        ctx.beginPath();
+        ctx.arc(p.head.x, p.head.y, 24, 0, Math.PI * 2);
+        ctx.fill();
+
+        sortedLimbs.forEach(limb => {
+            ctx.lineCap = 'round';
+            ctx.lineWidth = limb.w;
+            if (cueMode === 'none') {
+                ctx.strokeStyle = '#00f2ff';
+            } else {
+                // Highlight front limbs brighter, back limbs darker to force brain perception!
+                ctx.strokeStyle = limb.z > 0 ? '#ffffff' : '#0284c7';
+            }
+            ctx.beginPath();
+            ctx.moveTo(limb.p1.x, limb.p1.y);
+            ctx.lineTo(limb.p2.x, limb.p2.y);
+            ctx.stroke();
+        });
+    }
+
+    function loop() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const spd = parseInt(speedSlider.value) * 0.0022;
+        angle += spd;
+
+        if (currentMode === 'ames') drawAmesWindow();
+        else drawBistableFigure();
+
+        requestAnimationFrame(loop);
+    }
+
+    loop();
+</script>
+</body>
+</html>

@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ses-Görüntü Çatışması (McGurk Etkisi)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .app-layout {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.25rem;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.65rem;
+            justify-content: center;
+            align-items: center;
+            background: var(--surface-light);
+            padding: 1rem 1.25rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            width: 100%;
+            max-width: 920px;
+        }
+
+        .mode-btn {
+            background: rgba(255,255,255,0.07);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 0.6rem 1.1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 0.88rem;
+            transition: all 0.2s;
+        }
+        .mode-btn:hover, .mode-btn.active {
+            background: var(--accent-cyan);
+            color: #000;
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .stage-panel {
+            width: 100%;
+            max-width: 920px;
+            background: radial-gradient(circle at center, #182238 0%, #090d16 100%);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.65);
+            position: relative;
+        }
+
+        canvas {
+            width: 100%;
+            height: auto;
+            display: block;
+            cursor: pointer;
+        }
+
+        .controls-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.25rem;
+            align-items: center;
+            justify-content: center;
+            background: var(--surface-light);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            width: 100%;
+            max-width: 920px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header class="app-header">
+        <a href="../index.html" class="back-btn">
+            <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"></path></svg>
+            Ana Menü
+        </a>
+        <h1 class="app-title">Ses-Görüntü Çatışması (McGurk İkili Arena)</h1>
+        <p class="app-subtitle">Hoparlörden tek bir ses çıkıyor! Gözünüzle SOL yüze baktığınızda "BA", SAĞ yüze baktığınızda ise "FA / VA" veya "DA" duyacaksınız!</p>
+    </header>
+
+    <div class="app-layout">
+        <div class="toolbar">
+            <button class="mode-btn active" data-exp="bafa">🦷 1. BBC Deneyi: Sol "BA" &harr; Sağ "FA / VA"</button>
+            <button class="mode-btn" data-exp="baga">🧠 2. Klasik McGurk: Sol "BA" &harr; Sağ "GA &rarr; DA"</button>
+            <button class="mode-btn" id="maskBtn" style="background:rgba(255,0,123,0.18); border-color:#ff007b; color:#ff85b8;">
+                🙈 Ağızları Gizle (Sadece Kulakla Dinle)
+            </button>
+        </div>
+
+        <div class="stage-panel">
+            <canvas id="faceCanvas" width="920" height="450"></canvas>
+        </div>
+
+        <div class="controls-bar">
+            <button class="primary-btn" id="playBtn" style="padding:0.85rem 2.2rem; font-size:1.05rem;">
+                ▶ DÖNGÜYÜ BAŞLAT
+            </button>
+
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:0.88rem; color:var(--text-muted); font-weight:600;">Ses Motoru:</span>
+                <select id="voiceEngine" class="form-control" style="width:auto; padding:0.45rem 0.8rem;">
+                    <option value="hybrid">🎙️ Doğal İnsan Vokal + Fonetik Hibrit (Önerilen)</option>
+                    <option value="tts">🗣️ Tarayıcı İnsan Sesi (SpeechSynthesis)</option>
+                    <option value="formant">🎛️ Saf Akustik Formant Sentezi</option>
+                </select>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:0.88rem; color:var(--text-muted); font-weight:600;">Ünsüz Dengesi (B &harr; F/D):</span>
+                <input type="range" id="blendSlider" min="0" max="100" value="42" style="width:120px;">
+            </div>
+        </div>
+
+        <p style="color:var(--text-muted); text-align:center; max-width:780px; font-size:0.95rem; line-height:1.5; margin:0;">
+            💡 <strong>Nasıl Denenmeli?</strong> Döngüyü başlatın. Hiçbir tuşa dokunmadan sadece <strong>bakışınızı Sol Yüzdeki dudaklar ile Sağ Yüzdeki dudaklar arasında gezdirin</strong>. Kulağınıza gelen sesin baktığınız yüze göre anında <strong>"BA"</strong> ile <strong>"FA / DA"</strong> arasında değiştiğini duyacaksınız!
+        </p>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('faceCanvas');
+    const ctx = canvas.getContext('2d');
+    const playBtn = document.getElementById('playBtn');
+    const maskBtn = document.getElementById('maskBtn');
+    const voiceEngine = document.getElementById('voiceEngine');
+    const blendSlider = document.getElementById('blendSlider');
+
+    let isRunning = false;
+    let hideMouths = false;
+    let currentExp = 'bafa'; // 'bafa' or 'baga'
+    let hoveredSide = 'none'; // 'left' or 'right'
+    let loopTimer = null;
+    let audioCtx = null;
+    let glottalWave = null;
+
+    let anim = {
+        jawOpen: 0,
+        baPress: 0,
+        faBite: 0,
+        gaTongue: 0,
+        wavePulse: 0
+    };
+
+    document.querySelectorAll('.mode-btn[data-exp]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.mode-btn[data-exp]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentExp = btn.dataset.exp;
+        });
+    });
+
+    maskBtn.addEventListener('click', () => {
+        hideMouths = !hideMouths;
+        maskBtn.classList.toggle('active', hideMouths);
+        maskBtn.innerText = hideMouths ? '👀 Ağızları Tekrar Göster' : '🙈 Ağızları Gizle (Sadece Kulakla Dinle)';
+    });
+
+    canvas.addEventListener('mousemove', e => {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        hoveredSide = mx < rect.width / 2 ? 'left' : 'right';
+    });
+
+    function ensureAudio() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            // Create natural Rosenberg human vocal fold PeriodicWave (1/k^1.8 roll-off for warm human voice timbre)
+            const N = 32;
+            const real = new Float32Array(N);
+            const imag = new Float32Array(N);
+            for (let k = 1; k < N; k++) {
+                imag[k] = 1.0 / Math.pow(k, 1.65);
+            }
+            glottalWave = audioCtx.createPeriodicWave(real, imag);
+        }
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function playAcousticSyllable() {
+        ensureAudio();
+        const now = audioCtx.currentTime;
+        const dur = 0.44;
+        const blend = parseInt(blendSlider.value) / 100; // 0 = pure B, 1 = stronger F/D cue
+
+        const engine = voiceEngine.value;
+        if (engine === 'tts' || engine === 'hybrid') {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const u = new SpeechSynthesisUtterance(currentExp === 'bafa' ? 'va' : 'ba');
+                u.lang = 'tr-TR';
+                u.rate = 1.05;
+                u.pitch = 0.95;
+                u.volume = engine === 'tts' ? 1.0 : 0.55;
+                window.speechSynthesis.speak(u);
+            }
+            if (engine === 'tts') return;
+        }
+
+        // Natural Human Glottal Source
+        const osc = audioCtx.createOscillator();
+        osc.setPeriodicWave(glottalWave);
+        osc.frequency.setValueAtTime(112, now);
+        osc.frequency.linearRampToValueAtTime(122, now + 0.11);
+        osc.frequency.exponentialRampToValueAtTime(96, now + dur);
+
+        // Sub-glottal warmth
+        const f1 = audioCtx.createBiquadFilter();
+        const f2 = audioCtx.createBiquadFilter();
+        const f3 = audioCtx.createBiquadFilter();
+        [f1, f2, f3].forEach(f => { f.type = 'bandpass'; });
+        f1.Q.value = 4.5;
+        f2.Q.value = 5.5;
+        f3.Q.value = 6.5;
+
+        // Formant transition tailored for bistable McGurk binding:
+        // Starts at an intermediate locus between bilabial (850Hz) and alveolar/labiodental (1350Hz)
+        const startF1 = 260 + blend * 160;
+        const startF2 = 880 + blend * 520;
+        f1.frequency.setValueAtTime(startF1, now);
+        f1.frequency.exponentialRampToValueAtTime(750, now + 0.075);
+
+        f2.frequency.setValueAtTime(startF2, now);
+        f2.frequency.exponentialRampToValueAtTime(1180, now + 0.075);
+
+        f3.frequency.setValueAtTime(2200, now);
+        f3.frequency.exponentialRampToValueAtTime(2520, now + 0.075);
+
+        // Subtle consonant release aspiration/frication burst (key to BA <-> FA / DA switch!)
+        const bufLen = Math.floor(audioCtx.sampleRate * 0.085);
+        const nBuf = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
+        const nData = nBuf.getChannelData(0);
+        for (let i = 0; i < bufLen; i++) {
+            nData[i] = (Math.random() * 2 - 1) * Math.sin((i / bufLen) * Math.PI);
+        }
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = nBuf;
+        const nf = audioCtx.createBiquadFilter();
+        nf.type = 'bandpass';
+        nf.frequency.value = currentExp === 'bafa' ? 2100 : 1650;
+        nf.Q.value = 1.4;
+        const ng = audioCtx.createGain();
+        ng.gain.setValueAtTime(0.04 + blend * 0.16, now);
+        ng.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        noise.connect(nf); nf.connect(ng); ng.connect(audioCtx.destination);
+        noise.start(now);
+
+        const master = audioCtx.createGain();
+        master.gain.setValueAtTime(0.01, now);
+        master.gain.linearRampToValueAtTime(0.22, now + 0.025);
+        master.gain.linearRampToValueAtTime(0.75, now + 0.07);
+        master.gain.setValueAtTime(0.7, now + 0.24);
+        master.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+        const g1 = audioCtx.createGain(); g1.gain.value = 1.0;
+        const g2 = audioCtx.createGain(); g2.gain.value = 0.65;
+        const g3 = audioCtx.createGain(); g3.gain.value = 0.25;
+
+        osc.connect(f1); f1.connect(g1); g1.connect(master);
+        osc.connect(f2); f2.connect(g2); g2.connect(master);
+        osc.connect(f3); f3.connect(g3); g3.connect(master);
+        master.connect(audioCtx.destination);
+
+        osc.start(now);
+        osc.stop(now + dur + 0.02);
+    }
+
+    function triggerUtteranceCycle() {
+        if (!isRunning) return;
+        const start = performance.now();
+
+        // Natural human speech visual lead: Mouth articulation starts 210ms BEFORE acoustic vowel onset!
+        setTimeout(() => {
+            if (isRunning) playAcousticSyllable();
+        }, 210);
+
+        function step(now) {
+            const t = now - start;
+            if (t < 210) {
+                // Preparatory Consonant Articulation Phase (0..210ms)
+                const p = Math.sin((t / 210) * (Math.PI / 2));
+                anim.baPress = p;
+                anim.faBite = p;
+                anim.gaTongue = p;
+                anim.jawOpen = 0;
+                anim.wavePulse = 0;
+            } else if (t < 580) {
+                // Vowel "/A/" Release Phase (210..580ms)
+                const p = (t - 210) / 370;
+                const env = Math.sin(p * Math.PI);
+                anim.baPress = 0;
+                anim.faBite = Math.max(0, 1 - p * 3.2);
+                anim.gaTongue = Math.max(0, 1 - p * 2.4);
+                anim.jawOpen = env;
+                anim.wavePulse = env;
+            } else {
+                anim.jawOpen = 0;
+                anim.baPress = 0;
+                anim.faBite = 0;
+                anim.gaTongue = 0;
+                anim.wavePulse = 0;
+                return;
+            }
+            if (isRunning) requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+    }
+
+    function drawSingleFace(cx, cy, visemeType, titleLabel, subtitleLabel, isFocused) {
+        // Highlight ring around focused face
+        if (isFocused) {
+            ctx.strokeStyle = 'rgba(0, 242, 255, 0.55)';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(cx - 210, 14, 420, canvas.height - 28);
+        }
+
+        // Top Header Pill for this Face
+        ctx.fillStyle = isFocused ? 'rgba(0, 242, 255, 0.18)' : 'rgba(15, 23, 42, 0.75)';
+        ctx.beginPath();
+        ctx.roundRect(cx - 175, 24, 350, 54, 12);
+        ctx.fill();
+        ctx.strokeStyle = isFocused ? '#00f2ff' : 'rgba(255,255,255,0.15)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '800 16px Inter';
+        ctx.textAlign = 'center';
+        ctx.fillText(titleLabel, cx, 47);
+        ctx.fillStyle = '#00f2ff';
+        ctx.font = '700 13px Inter';
+        ctx.fillText(subtitleLabel, cx, 67);
+
+        // Sound waves when speaking
+        if (anim.wavePulse > 0.05) {
+            ctx.strokeStyle = `rgba(0, 242, 255, ${anim.wavePulse * 0.3})`;
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.arc(cx, cy + 65, 115 + (1 - anim.wavePulse) * 28, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        const jawDrop = visemeType === 'ga'
+            ? (anim.gaTongue * 18 + anim.jawOpen * 38)
+            : (anim.jawOpen * 40);
+
+        // Face oval
+        const skin = ctx.createRadialGradient(cx - 20, cy - 30, 15, cx, cy, 155);
+        skin.addColorStop(0, '#ffe5d9');
+        skin.addColorStop(0.7, '#f1bca4');
+        skin.addColorStop(1, '#c5866b');
+        ctx.fillStyle = skin;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + 15, 122, 148 + jawDrop * 0.35, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Eyes
+        [-48, 48].forEach(ox => {
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.ellipse(cx + ox, cy - 22, 20, 12, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#1e3a8a';
+            ctx.beginPath();
+            ctx.arc(cx + ox, cy - 22, 9, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#05070c';
+            ctx.beginPath();
+            ctx.arc(cx + ox, cy - 22, 4.5, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        // Nose
+        ctx.strokeStyle = 'rgba(140, 85, 65, 0.55)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - 15);
+        ctx.lineTo(cx - 7, cy + 28);
+        ctx.quadraticCurveTo(cx, cy + 34, cx + 10, cy + 28);
+        ctx.stroke();
+
+        // Mouth Center (where gaze should focus!)
+        const mx = cx, my = cy + 82;
+
+        if (visemeType === 'ba') {
+            // "BA": Strong bilabial compression (lips press tightly together, then pop wide open!)
+            const press = anim.baPress * 10;
+            const open = anim.jawOpen * 42;
+
+            if (open > 2) {
+                ctx.fillStyle = '#38070f';
+                ctx.beginPath();
+                ctx.ellipse(mx, my + open * 0.25, 52, open, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Upper teeth
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(mx - 34, my - open * 0.55, 68, 10);
+            }
+
+            // Upper Lip
+            ctx.fillStyle = '#c94252';
+            ctx.beginPath();
+            ctx.moveTo(mx - 56, my);
+            ctx.quadraticCurveTo(mx, my - 18 - open * 0.4 + press, mx + 56, my);
+            ctx.quadraticCurveTo(mx, my - open * 0.35 + press, mx - 56, my);
+            ctx.fill();
+
+            // Lower Lip
+            ctx.fillStyle = '#b43444';
+            ctx.beginPath();
+            ctx.moveTo(mx - 56, my);
+            ctx.quadraticCurveTo(mx, my + 20 + open * 0.85 - press, mx + 56, my);
+            ctx.quadraticCurveTo(mx, my + open * 0.55 - press, mx - 56, my);
+            ctx.fill();
+
+            if (anim.baPress > 0.15) {
+                // Visible pressed lip seam
+                ctx.strokeStyle = '#5c0c16';
+                ctx.lineWidth = 4 + anim.baPress * 4;
+                ctx.beginPath();
+                ctx.moveTo(mx - 56, my);
+                ctx.lineTo(mx + 56, my);
+                ctx.stroke();
+            }
+        } else if (visemeType === 'fa') {
+            // "FA / VA": Labiodental contact! Lower lip tucks inward while 6 white upper teeth bite down onto it!
+            const bite = anim.faBite;
+            const open = anim.jawOpen * 38;
+
+            if (open > 2) {
+                ctx.fillStyle = '#38070f';
+                ctx.beginPath();
+                ctx.ellipse(mx, my + open * 0.28, 50, open, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Lower Lip tucked under teeth during bite
+            ctx.fillStyle = '#b43444';
+            ctx.beginPath();
+            const botY = my + open * 0.8 - bite * 12;
+            ctx.moveTo(mx - 54, my);
+            ctx.quadraticCurveTo(mx, botY + 22, mx + 54, my);
+            ctx.quadraticCurveTo(mx, botY - 2, mx - 54, my);
+            ctx.fill();
+
+            // Prominent Upper Front Teeth biting down over the lower lip!
+            if (bite > 0.08 || open > 4) {
+                const toothLen = Math.max(8, bite * 18);
+                ctx.fillStyle = '#ffffff';
+                ctx.strokeStyle = '#94a3b8';
+                ctx.lineWidth = 1.2;
+                for (let k = -3; k <= 2; k++) {
+                    ctx.fillRect(mx + k * 11, my - 6 - open * 0.25, 10.5, toothLen);
+                    ctx.strokeRect(mx + k * 11, my - 6 - open * 0.25, 10.5, toothLen);
+                }
+            }
+
+            // Upper Lip arched high to expose teeth
+            ctx.fillStyle = '#c94252';
+            ctx.beginPath();
+            const topY = my - open * 0.35 - bite * 10;
+            ctx.moveTo(mx - 54, my);
+            ctx.quadraticCurveTo(mx, topY - 18, mx + 54, my);
+            ctx.quadraticCurveTo(mx, topY - 4, mx - 54, my);
+            ctx.fill();
+        } else if (visemeType === 'ga') {
+            // "GA": Mouth NEVER closes! Jaw is already open while back of tongue rises visibly!
+            const open = 16 + anim.gaTongue * 12 + anim.jawOpen * 28;
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.ellipse(mx, my + open * 0.25, 52, open, 0, 0, Math.PI * 2);
+            ctx.clip();
+
+            ctx.fillStyle = '#38070f';
+            ctx.fillRect(mx - 70, my - 50, 140, 120);
+
+            // Arching Tongue in middle/back of mouth
+            ctx.fillStyle = '#e15b70';
+            ctx.beginPath();
+            ctx.ellipse(mx, my + open * 0.55 - anim.gaTongue * 24, 40, 26, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(mx - 36, my - open * 0.75, 72, 12);
+            ctx.restore();
+
+            ctx.strokeStyle = '#c94252';
+            ctx.lineWidth = 8;
+            ctx.beginPath();
+            ctx.ellipse(mx, my + open * 0.25, 52, open, 0, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // Focus target reticle on the lips
+        ctx.strokeStyle = 'rgba(0, 242, 255, 0.35)';
+        ctx.setLineDash([4, 4]);
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(mx - 72, my - 35, 144, 80);
+        ctx.setLineDash([]);
+
+        if (hideMouths) {
+            ctx.fillStyle = '#0f172a';
+            ctx.strokeStyle = '#ff007b';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.roundRect(mx - 95, my - 40, 190, 90, 12);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = '#ff007b';
+            ctx.font = '800 14px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillText('🙈 AĞIZ GİZLENDİ', mx, my + 8);
+        }
+    }
+
+    function renderLoop() {
+        const W = canvas.width, H = canvas.height;
+        ctx.clearRect(0, 0, W, H);
+
+        // Center Divider Line
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(W / 2, 15);
+        ctx.lineTo(W / 2, H - 15);
+        ctx.stroke();
+
+        // Left Face: Always articulates "BA"
+        drawSingleFace(
+            W * 0.25,
+            H * 0.48,
+            'ba',
+            '👈 1. SOL DUDAKLARA BAKIN',
+            'Dudaklar Kapanıyor → "BA" Duyulur',
+            hoveredSide === 'left'
+        );
+
+        // Right Face: Articulates "FA" or "GA" simultaneously!
+        const rightVis = currentExp === 'bafa' ? 'fa' : 'ga';
+        const rightSub = currentExp === 'bafa'
+            ? 'Dişler Dudağı Isırıyor → "FA / VA" Duyulur!'
+            : 'Ağız Açık & Dil Kalkıyor → "DA / GA" Duyulur!';
+
+        drawSingleFace(
+            W * 0.75,
+            H * 0.48,
+            rightVis,
+            '👉 2. SAĞ DUDAKLARA BAKIN',
+            rightSub,
+            hoveredSide === 'right'
+        );
+
+        requestAnimationFrame(renderLoop);
+    }
+
+    playBtn.addEventListener('click', () => {
+        isRunning = !isRunning;
+        if (isRunning) {
+            playBtn.innerText = '⏹ DÖNGÜYÜ DURDUR';
+            playBtn.style.background = 'linear-gradient(135deg, #ff007b, #7000ff)';
+            playBtn.style.color = '#fff';
+            triggerUtteranceCycle();
+            loopTimer = setInterval(triggerUtteranceCycle, 1200);
+        } else {
+            playBtn.innerText = '▶ DÖNGÜYÜ BAŞLAT';
+            playBtn.style.background = '';
+            playBtn.style.color = '';
+            clearInterval(loopTimer);
+        }
+    });
+
+    renderLoop();
+</script>
+</body>
+</html>
